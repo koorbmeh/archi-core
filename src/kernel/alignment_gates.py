@@ -147,7 +147,7 @@ def check_scope(ctx: ActionContext) -> GateResult:
     """Prevent generated code from writing into kernel paths."""
     if ctx.action_type != "file_write":
         return GateResult(True, "scope")
-    target = str(Path(ctx.target))
+    target = str(Path(ctx.target)).replace("\\", "/")
     if ctx.metadata.get("source") == "generated" and target.startswith("src/kernel/"):
         return GateResult(False, "scope",
                           f"Generated code cannot write to kernel path: {ctx.target}")

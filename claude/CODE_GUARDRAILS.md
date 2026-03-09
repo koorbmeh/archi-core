@@ -72,7 +72,8 @@ lines. A codebase readable in one session is a feature.
 Exception 1: 2026-03-09 — Windows path separator normalization.
 `str(Path())` produces backslashes on Windows, breaking protected file
 comparisons against forward-slash strings in PROTECTED_FILES.
-Fix: `.replace("\\", "/")` on line 101.
+Fix: `.replace("\\", "/")` on line 101 (check_protected_file) and
+line 150 (check_scope). Same root cause, same fix.
 
 ---
 
