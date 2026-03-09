@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 4)
+Last updated: 2026-03-09 (session 5)
 
 ---
 
@@ -47,35 +47,45 @@ Starting model (until Archi develops its own selection strategy):
 
 ## Kernel Status
 
-### Built
+### Built — ALL KERNEL COMPONENTS COMPLETE
 - [x] src/kernel/self_modifier.py — 116 lines, 13 tests. Session 1.
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
 - [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
 - [x] src/kernel/model_interface.py — 188 lines, 20 tests. Session 3.
 - [x] src/kernel/generation_loop.py — 199 lines, 19 tests. Session 4.
+- [x] src/kernel/alignment_gates.py — 173 lines, 29 tests. Session 5.
 
 ### In Progress
 *(nothing — session ended clean)*
 
 ### Not Yet Built
-- [ ] src/kernel/alignment_gates.py
+*(none — kernel is complete)*
 
 ---
 
 ## Next Priority
 
-**Build src/kernel/alignment_gates.py**
+**Run the generation loop end-to-end against a live model.**
 
-Kernel-level constraints that survive self-modification: budget enforcement,
-user authority, no silent external actions, protected file list. This is the
-final kernel component. Once built, the generation loop can run end-to-end
-against a live model — and Cowork's job is done.
+All six kernel components are built. The next step is to wire alignment gates
+into the generation loop as a pre-flight check, then run one full cycle with
+a real model call. When that succeeds, Cowork's job is done and Archi can
+begin developing itself.
+
+Optional refinements before first live run:
+- Wire check_gates() into generation_loop.run_cycle() before plan/generate phases
+- Wire log_cost() into model_interface.call_model() after each call
 
 ---
 
 ## Needs Jesse
 
-*(All resolved as of session 2.)*
+**First live run:** When you're ready, run generation_loop.run_cycle() with a
+real API key. The kernel will detect its own gaps, ask the model to plan and
+generate code, test it, and integrate on success. That's Archi's first
+autonomous act.
+
+*(All previous items resolved as of session 2.)*
 
 ### Resolved
 - **API keys:** Added to .env (session 2). Anthropic, xAI, OpenRouter.
@@ -117,3 +127,4 @@ against a live model — and Cowork's job is done.
 - Session 2: 2026-03-09 — Built capability_registry.py + gap_detector.py. 35/35 tests passing.
 - Session 3: 2026-03-09 — Built model_interface.py. 55/55 tests passing.
 - Session 4: 2026-03-09 — Built generation_loop.py. 74/74 tests passing.
+- Session 5: 2026-03-09 — Built alignment_gates.py. 103/103 tests passing. KERNEL COMPLETE.
