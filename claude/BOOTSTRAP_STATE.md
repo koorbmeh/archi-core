@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 2)
+Last updated: 2026-03-09 (session 3)
 
 ---
 
@@ -51,12 +51,12 @@ Starting model (until Archi develops its own selection strategy):
 - [x] src/kernel/self_modifier.py — 116 lines, 13 tests. Session 1.
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
 - [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
+- [x] src/kernel/model_interface.py — 188 lines, 20 tests. Session 3.
 
 ### In Progress
 *(nothing — session ended clean)*
 
 ### Not Yet Built
-- [ ] src/kernel/model_interface.py
 - [ ] src/kernel/generation_loop.py
 - [ ] src/kernel/alignment_gates.py
 
@@ -64,11 +64,12 @@ Starting model (until Archi develops its own selection strategy):
 
 ## Next Priority
 
-**Build src/kernel/model_interface.py**
+**Build src/kernel/generation_loop.py**
 
-Minimal model caller. One function: given a prompt, return a response. Reads
-provider/model from .env. Tracks token cost per call and enforces session budget
-ceiling. API keys are now available (Anthropic, xAI, OpenRouter).
+Unified cycle: Observe → Detect Gap → Plan → Generate Code → Test → Integrate.
+Wires self_modifier + gap_detector + capability_registry + model_interface.
+When this runs end-to-end, Archi can develop itself. This is the final
+non-alignment kernel component.
 
 ---
 
@@ -116,3 +117,4 @@ ceiling. API keys are now available (Anthropic, xAI, OpenRouter).
 
 - Session 1: 2026-03-09 — Built self_modifier.py. 13/13 tests passing.
 - Session 2: 2026-03-09 — Built capability_registry.py + gap_detector.py. 35/35 tests passing.
+- Session 3: 2026-03-09 — Built model_interface.py. 55/55 tests passing.
