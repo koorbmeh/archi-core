@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 1)
+Last updated: 2026-03-09 (session 2)
 
 ---
 
@@ -48,14 +48,14 @@ Starting model (until Archi develops its own selection strategy):
 ## Kernel Status
 
 ### Built
-- [x] src/kernel/self_modifier.py — 116 lines, 13 tests passing. Session 1.
+- [x] src/kernel/self_modifier.py — 116 lines, 13 tests. Session 1.
+- [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
+- [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
 
 ### In Progress
 *(nothing — session ended clean)*
 
 ### Not Yet Built
-- [ ] src/kernel/gap_detector.py
-- [ ] src/kernel/capability_registry.py
 - [ ] src/kernel/model_interface.py
 - [ ] src/kernel/generation_loop.py
 - [ ] src/kernel/alignment_gates.py
@@ -64,23 +64,23 @@ Starting model (until Archi develops its own selection strategy):
 
 ## Next Priority
 
-**Build src/kernel/gap_detector.py**
+**Build src/kernel/model_interface.py**
 
-Surfaces capability gaps from operational history and the capability registry.
-Not a hardcoded list — a mechanism. Requires capability_registry to exist first
-(or a stub), so consider building a minimal registry interface alongside it.
+Minimal model caller. One function: given a prompt, return a response. Reads
+provider/model from .env. Tracks token cost per call and enforces session budget
+ceiling. API keys are now available (Anthropic, xAI, OpenRouter).
 
 ---
 
 ## Needs Jesse
 
-- **API key:** Add ANTHROPIC_API_KEY to .env before the session that builds
-  model_interface.py. self_modifier.py does not need it.
-- **Budget decision:** Confirm the budget ceilings above are acceptable, or
-  adjust before first session that makes model calls.
-- **Approval model:** When Archi self-modifies, should it notify you and wait
-  for override, or proceed and notify? Recommend: proceed + Discord notify +
-  10-minute override window. Note your preference here.
+*(All resolved as of session 2.)*
+
+### Resolved
+- **API keys:** Added to .env (session 2). Anthropic, xAI, OpenRouter.
+- **Budget:** Confirmed acceptable (session 2).
+- **Approval model:** No approval required. Archi operates fully autonomously —
+  no notification/override window needed. (Jesse, session 2.)
 
 ---
 
@@ -88,19 +88,18 @@ Not a hardcoded list — a mechanism. Requires capability_registry to exist firs
 
 - Which model for generation_loop code generation tasks — Sonnet for all, or
   a cheaper model for planning steps and Sonnet only for code output?
-- Should capability_registry.py use JSON (machine-native) or Markdown
-  (human-readable)? Recommend JSON with a human-readable export function.
-- gap_detector needs something to detect gaps *from*. Build a minimal
-  capability_registry stub first, or have gap_detector define its own
-  expected interface?
+  Jesse's .env suggests: grok-4-1-fast-reasoning as PRIMARY, Sonnet for codegen.
+
+### Resolved
+- capability_registry uses JSON. (Session 2.)
+- gap_detector reads from capability_registry + operation logs. (Session 2.)
 
 ---
 
 ## Known Issues / Bug Watch
 
-- **Git index.lock stuck (session 1):** Stale 0-byte `.git/index.lock` file
-  cannot be removed due to sandbox permissions. Git operations blocked.
-  Jesse: manually delete `.git/index.lock` before next session.
+- **Git index.lock (session 1):** Resolved — sandbox permissions granted, lock
+  removed, initial commit created successfully.
 - pytest cleanup in sandbox throws PermissionError on tmp_path removal.
   Does not affect test results — cosmetic only. May need `--basetemp` flag
   pointed outside the mounted volume if it causes issues later.
@@ -116,3 +115,4 @@ Not a hardcoded list — a mechanism. Requires capability_registry to exist firs
 ## Session Log Index
 
 - Session 1: 2026-03-09 — Built self_modifier.py. 13/13 tests passing.
+- Session 2: 2026-03-09 — Built capability_registry.py + gap_detector.py. 35/35 tests passing.
