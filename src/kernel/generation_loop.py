@@ -19,6 +19,12 @@ from src.kernel.model_interface import (
 )
 from src.kernel.self_modifier import ChangeResult, apply_change
 
+try:
+    from capabilities.api_introspection import build_api_context
+except ImportError:
+    def build_api_context(registry=None):  # type: ignore[misc]
+        return ""
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_OP_LOG = Path("data/operation_log.jsonl")
@@ -129,6 +135,16 @@ def run_cycle(
     detail_line = ""
     if gap.detail:
         detail_line = f"  Context from operational history: {gap.detail}\n"
+
+    # Build real API context so the planner sees actual function signatures
+    api_context = build_api_context(registry)
+    api_block = ""
+    if api_context:
+        api_block = (
+            f"\nAvailable module APIs (use these exact function names and signatures):\n"
+            f"{api_context}\n"
+        )
+
     plan_prompt = (
         f"Capability gap to close:\n"
         f"  Name: {gap.name}\n"
@@ -137,6 +153,7 @@ def run_cycle(
         f"{detail_line}\n"
         f"Currently registered capabilities: "
         f"{', '.join(registry.names()) or '(none)'}\n\n"
+        f"{api_block}"
         f"Produce a plan to close this gap."
     )
     try:
@@ -178,6 +195,9 @@ def run_cycle(
         f"  Description: {plan['description']}\n"
         f"  Approach: {plan['approach']}\n"
         f"  Dependencies: {', '.join(plan.get('dependencies', [])) or 'none'}\n\n"
+        f"{api_block}"
+        f"IMPORTANT: Only import and call functions that appear in the API listing above. "
+        f"Do not invent function names or assume interfaces exist.\n\n"
         f"Write the complete file contents."
     )
     try:
