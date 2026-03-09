@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 3)
+Last updated: 2026-03-09 (session 4)
 
 ---
 
@@ -52,24 +52,24 @@ Starting model (until Archi develops its own selection strategy):
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
 - [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
 - [x] src/kernel/model_interface.py — 188 lines, 20 tests. Session 3.
+- [x] src/kernel/generation_loop.py — 199 lines, 19 tests. Session 4.
 
 ### In Progress
 *(nothing — session ended clean)*
 
 ### Not Yet Built
-- [ ] src/kernel/generation_loop.py
 - [ ] src/kernel/alignment_gates.py
 
 ---
 
 ## Next Priority
 
-**Build src/kernel/generation_loop.py**
+**Build src/kernel/alignment_gates.py**
 
-Unified cycle: Observe → Detect Gap → Plan → Generate Code → Test → Integrate.
-Wires self_modifier + gap_detector + capability_registry + model_interface.
-When this runs end-to-end, Archi can develop itself. This is the final
-non-alignment kernel component.
+Kernel-level constraints that survive self-modification: budget enforcement,
+user authority, no silent external actions, protected file list. This is the
+final kernel component. Once built, the generation loop can run end-to-end
+against a live model — and Cowork's job is done.
 
 ---
 
@@ -99,8 +99,6 @@ non-alignment kernel component.
 
 ## Known Issues / Bug Watch
 
-- **Git index.lock (session 1):** Resolved — sandbox permissions granted, lock
-  removed, initial commit created successfully.
 - pytest cleanup in sandbox throws PermissionError on tmp_path removal.
   Does not affect test results — cosmetic only. May need `--basetemp` flag
   pointed outside the mounted volume if it causes issues later.
@@ -118,3 +116,4 @@ non-alignment kernel component.
 - Session 1: 2026-03-09 — Built self_modifier.py. 13/13 tests passing.
 - Session 2: 2026-03-09 — Built capability_registry.py + gap_detector.py. 35/35 tests passing.
 - Session 3: 2026-03-09 — Built model_interface.py. 55/55 tests passing.
+- Session 4: 2026-03-09 — Built generation_loop.py. 74/74 tests passing.
