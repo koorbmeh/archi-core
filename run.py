@@ -28,8 +28,26 @@ from src.kernel.model_interface import (
 )
 
 REPO_ROOT = str(Path(__file__).resolve().parent)
+REPO_ROOT_PATH = Path(__file__).resolve().parent
 REGISTRY_PATH = Path("data/capability_registry.json")
 OP_LOG_PATH = Path("data/operation_log.jsonl")
+
+_GIT_LOCK_FILES = ["HEAD.lock", "index.lock"]
+
+
+def clean_stale_git_locks() -> None:
+    """Remove 0-byte git lock files left by crashed processes."""
+    git_dir = REPO_ROOT_PATH / ".git"
+    for lock_name in _GIT_LOCK_FILES:
+        lock = git_dir / lock_name
+        if lock.exists() and lock.stat().st_size == 0:
+            try:
+                lock.unlink()
+                logging.getLogger("archi.run").info(
+                    "Removed stale lock: %s", lock_name)
+            except OSError:
+                logging.getLogger("archi.run").warning(
+                    "Could not remove stale lock: %s", lock_name)
 
 
 def setup_logging() -> None:
@@ -138,6 +156,7 @@ def main() -> int:
     plan_fn = make_plan_fn()
     codegen_fn = make_codegen_fn()
     reset_session()
+    clean_stale_git_locks()
 
     for cycle_num in range(1, args.loop + 1):
         logger.info("--- Cycle %d of %d ---", cycle_num, args.loop)
