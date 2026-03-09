@@ -35,19 +35,32 @@ OP_LOG_PATH = Path("data/operation_log.jsonl")
 _GIT_LOCK_FILES = ["HEAD.lock", "index.lock"]
 
 
+_STALE_LOCK_AGE_SECONDS = 60
+
+
 def clean_stale_git_locks() -> None:
-    """Remove 0-byte git lock files left by crashed processes."""
+    """Remove stale git lock files left by crashed processes.
+
+    A lock is stale if it is zero bytes OR older than 60 seconds.
+    """
+    import time
     git_dir = REPO_ROOT_PATH / ".git"
+    log = logging.getLogger("archi.run")
     for lock_name in _GIT_LOCK_FILES:
         lock = git_dir / lock_name
-        if lock.exists() and lock.stat().st_size == 0:
-            try:
-                lock.unlink()
-                logging.getLogger("archi.run").info(
-                    "Removed stale lock: %s", lock_name)
-            except OSError:
-                logging.getLogger("archi.run").warning(
-                    "Could not remove stale lock: %s", lock_name)
+        if not lock.exists():
+            continue
+        stat = lock.stat()
+        age = time.time() - stat.st_mtime
+        is_stale = stat.st_size == 0 or age > _STALE_LOCK_AGE_SECONDS
+        if not is_stale:
+            continue
+        try:
+            lock.unlink()
+            log.info("Removed stale lock: %s (size=%d, age=%.0fs)",
+                     lock_name, stat.st_size, age)
+        except OSError:
+            log.warning("Could not remove stale lock: %s", lock_name)
 
 
 def setup_logging() -> None:

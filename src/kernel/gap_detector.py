@@ -21,10 +21,11 @@ logger = logging.getLogger(__name__)
 class Gap:
     """A detected capability gap."""
     name: str
-    source: str          # "structural" | "operational" | "registry"
+    source: str          # "structural" | "operational" | "registry" | "environment"
     reason: str
     priority: float      # 0.0 (low) to 1.0 (critical)
     evidence: list[str] = field(default_factory=list)
+    detail: str = ""
 
 
 # --- Structural gap detection ---
@@ -108,8 +109,11 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
             if not missing:
                 continue
             is_env = missing.startswith("env_")
+            entry_detail = entry.get("detail", "")
             if missing in gaps:
                 gaps[missing].evidence.append(entry.get("event", "unknown"))
+                if entry_detail and not gaps[missing].detail:
+                    gaps[missing].detail = entry_detail
             else:
                 gaps[missing] = Gap(
                     name=missing,
@@ -118,6 +122,7 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
                             else f"Operation failed due to missing '{missing}'."),
                     priority=1.0 if is_env else 0.7,
                     evidence=[entry.get("event", "unknown")],
+                    detail=entry_detail,
                 )
     except OSError as exc:
         logger.error("Could not read operation log: %s", exc)
@@ -142,6 +147,8 @@ def detect_gaps(
             existing.priority = max(existing.priority, gap.priority)
             existing.evidence.extend(gap.evidence)
             existing.source = _higher_source(existing.source, gap.source)
+            if gap.detail and not existing.detail:
+                existing.detail = gap.detail
         else:
             all_gaps[gap.name] = gap
     # Don't re-surface gaps for capabilities already registered and active.

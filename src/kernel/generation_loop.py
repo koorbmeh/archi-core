@@ -126,11 +126,15 @@ def run_cycle(
         _log_operation("plan_gate_blocked", False, detail=reasons, log_path=op_log)
         return CycleResult(phase_reached="plan", gap=gap, error=f"Gate blocked: {reasons}")
 
+    detail_line = ""
+    if gap.detail:
+        detail_line = f"  Context from operational history: {gap.detail}\n"
     plan_prompt = (
         f"Capability gap to close:\n"
         f"  Name: {gap.name}\n"
         f"  Reason: {gap.reason}\n"
-        f"  Evidence: {', '.join(gap.evidence)}\n\n"
+        f"  Evidence: {', '.join(gap.evidence)}\n"
+        f"{detail_line}\n"
         f"Currently registered capabilities: "
         f"{', '.join(registry.names()) or '(none)'}\n\n"
         f"Produce a plan to close this gap."
