@@ -116,14 +116,22 @@ Jesse's last resort for seeing what Archi is trying to say.
 
 ## Known Issues / Bug Watch
 
-- pytest cleanup in sandbox throws PermissionError on tmp_path removal.
-  Does not affect test results — cosmetic only. May need `--basetemp` flag
-  pointed outside the mounted volume if it causes issues later.
 - Environment gaps are now classified and surfaced (session 7), but Archi
   cannot yet *execute* environment repairs. The mechanism detects and logs
   env_ gaps at priority 1.0 — Archi still needs to build a capability that
   can act on them (e.g., running git config, fixing permissions). This is
   the next gap after user_communication is working.
+
+### Resolved
+
+- Windows path separator bugs in alignment_gates.py: `str(Path())` produces
+  backslashes on Windows, breaking comparisons against forward-slash strings.
+  Fixed with `.replace("\\", "/")` in three locations: (session 7)
+  - alignment_gates.py line 101 (`check_protected_file`)
+  - alignment_gates.py line 150 (`check_scope`)
+  - self_modifier.py line 41 (`_resolve_protected`)
+- pytest PermissionError on Windows tmp_path: fixed via `--basetemp` flag
+  in self_modifier._run_tests pointing to repo-local `.pytest_tmp/`. (session 7)
 
 ---
 

@@ -38,7 +38,7 @@ def _resolve_protected(file_path: str, repo_root: Path) -> bool:
             if resolved == (repo_root / protected).resolve():
                 return True
         # Also check the raw relative path
-        rel = str(Path(file_path))
+        rel = str(Path(file_path)).replace("\\", "/")
         return rel in PROTECTED_FILES
     except (ValueError, OSError):
         return False
