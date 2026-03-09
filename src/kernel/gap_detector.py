@@ -107,21 +107,24 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
             missing = entry.get("missing_capability")
             if not missing:
                 continue
+            is_env = missing.startswith("env_")
             if missing in gaps:
                 gaps[missing].evidence.append(entry.get("event", "unknown"))
             else:
                 gaps[missing] = Gap(
                     name=missing,
-                    source="operational",
-                    reason=f"Operation failed due to missing '{missing}'.",
-                    priority=0.7,
+                    source="environment" if is_env else "operational",
+                    reason=(f"Environment issue: '{missing}'." if is_env
+                            else f"Operation failed due to missing '{missing}'."),
+                    priority=1.0 if is_env else 0.7,
                     evidence=[entry.get("event", "unknown")],
                 )
     except OSError as exc:
         logger.error("Could not read operation log: %s", exc)
-    # Boost priority for gaps with many failure instances
+    # Boost priority for gaps with many failure instances (env gaps stay at 1.0)
     for gap in gaps.values():
-        gap.priority = min(1.0, 0.7 + 0.05 * len(gap.evidence))
+        if gap.source != "environment":
+            gap.priority = min(1.0, 0.7 + 0.05 * len(gap.evidence))
     return list(gaps.values())
 
 
@@ -146,5 +149,5 @@ def detect_gaps(
 
 def _higher_source(a: str, b: str) -> str:
     """Prefer the more actionable source."""
-    rank = {"structural": 2, "registry": 1, "operational": 0}
+    rank = {"environment": 3, "structural": 2, "registry": 1, "operational": 0}
     return a if rank.get(a, 0) >= rank.get(b, 0) else b

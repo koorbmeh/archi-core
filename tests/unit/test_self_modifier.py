@@ -170,3 +170,51 @@ class TestEdgeCases:
             result = apply_change(str(temp_repo), "file.py", "x = 1\n")
         assert result.success is False
         assert result.error is not None
+
+
+class TestFailureClassification:
+    """ChangeResult.failure_type classifies errors correctly."""
+
+    def test_dubious_ownership_is_environment(self, temp_repo):
+        with patch("src.kernel.self_modifier.git.Repo") as mock_repo_cls:
+            mock_repo = mock_repo_cls.return_value
+            mock_repo.active_branch.name = "main"
+            mock_repo.git.checkout.side_effect = git.GitCommandError(
+                "checkout", "fatal: detected dubious ownership in repository"
+            )
+            mock_repo.branches = []
+            result = apply_change(str(temp_repo), "file.py", "x = 1\n")
+        assert result.failure_type == "environment"
+
+    def test_safe_directory_is_environment(self, temp_repo):
+        with patch("src.kernel.self_modifier.git.Repo") as mock_repo_cls:
+            mock_repo = mock_repo_cls.return_value
+            mock_repo.active_branch.name = "main"
+            mock_repo.git.checkout.side_effect = git.GitCommandError(
+                "checkout", "call: git config --global --add safe.directory"
+            )
+            mock_repo.branches = []
+            result = apply_change(str(temp_repo), "file.py", "x = 1\n")
+        assert result.failure_type == "environment"
+
+    def test_test_failure_classified(self, temp_repo):
+        with patch(
+            "src.kernel.self_modifier._run_tests",
+            return_value=(False, "FAILED test_x.py"),
+        ):
+            result = apply_change(str(temp_repo), "hello.py", "MSG = 'bad'\n")
+        assert result.failure_type == "test_failure"
+
+    def test_unknown_exception_classified(self, temp_repo):
+        with patch("src.kernel.self_modifier.git.Repo") as mock_repo_cls:
+            mock_repo = mock_repo_cls.return_value
+            mock_repo.active_branch.name = "main"
+            mock_repo.git.checkout.side_effect = RuntimeError("something weird")
+            mock_repo.branches = []
+            result = apply_change(str(temp_repo), "file.py", "x = 1\n")
+        assert result.failure_type == "unknown"
+
+    def test_success_has_default_failure_type(self, temp_repo):
+        result = apply_change(str(temp_repo), "hello.py", "MSG = 'ok'\n")
+        assert result.success is True
+        assert result.failure_type == "unknown"

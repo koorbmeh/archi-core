@@ -6,6 +6,7 @@ Wires self_modifier + gap_detector + capability_registry + model_interface.
 
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
@@ -21,6 +22,14 @@ from src.kernel.self_modifier import ChangeResult, apply_change
 logger = logging.getLogger(__name__)
 
 DEFAULT_OP_LOG = Path("data/operation_log.jsonl")
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _error_slug(error_text: str, max_len: int = 40) -> str:
+    """Turn an error message into a short, filesystem-safe slug."""
+    slug = _SLUG_RE.sub("_", error_text.lower()).strip("_")
+    return slug[:max_len].rstrip("_")
 
 PLAN_SYSTEM = (
     "You are Archi's planning module. Given a capability gap, output ONLY a JSON "
@@ -197,8 +206,13 @@ def run_cycle(
     # --- Phase 4: Test + Integrate ---
     change = apply_change(repo_path, plan["file_path"], code)
     if not change.success:
-        _log_operation("integrate_failed", False, detail=change.message,
-                       missing_cap=gap.name, log_path=op_log)
+        if change.failure_type == "environment":
+            env_gap = f"env_{_error_slug(change.error or change.message)}"
+            _log_operation("integrate_failed", False, detail=change.message,
+                           missing_cap=env_gap, log_path=op_log)
+        else:
+            _log_operation("integrate_failed", False, detail=change.message,
+                           missing_cap=gap.name, log_path=op_log)
         return CycleResult(phase_reached="integrate", gap=gap, plan=plan,
                            change=change, error=change.message)
 

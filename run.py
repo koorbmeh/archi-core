@@ -82,6 +82,8 @@ def print_result(result: CycleResult, cycle_num: int) -> None:
         print(f"  Plan: {result.plan.get('file_path')} — {result.plan.get('description')}")
     if result.change:
         print(f"  Change: {'SUCCESS' if result.change.success else 'FAILED'} — {result.change.message}")
+        if not result.change.success and result.change.test_output:
+            print(f"  Test output:\n{result.change.test_output}")
     if result.capability_registered:
         print(f"  Capability registered: {result.gap.name}")
     if result.error:

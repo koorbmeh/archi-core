@@ -391,3 +391,60 @@ class TestOperationLogFeedback:
         assert gaps[0].name == "web_search"
         assert gaps[0].source == "operational"
         assert len(gaps[0].evidence) == 2
+
+
+class TestEnvironmentFailureRouting:
+    """Environment failures log a different gap name than the original capability."""
+
+    def test_environment_failure_logs_env_gap(self, tmp_path):
+        """When self_modifier returns failure_type=environment, the op log
+        should contain an env_* gap, not the original capability name."""
+        from unittest.mock import patch as mock_patch
+        import subprocess
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "src" / "tools").mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t.com"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"],
+                       cwd=str(repo), capture_output=True)
+        (repo / "README.md").write_text("init\n")
+        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"],
+                       cwd=str(repo), capture_output=True)
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        def good_plan(prompt, system=None):
+            return _make_response(VALID_PLAN_JSON)
+
+        def good_gen(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        env_result = ChangeResult(
+            success=False, branch_name="archi/mod-test",
+            file_path="src/tools/example.py",
+            message="Exception: dubious ownership in repository",
+            error="dubious ownership in repository",
+            failure_type="environment",
+        )
+        with mock_patch("src.kernel.generation_loop.apply_change",
+                        return_value=env_result):
+            result = run_cycle(
+                repo_path=str(repo), registry=registry,
+                log_path=op_log,
+                plan_fn=good_plan, generate_fn=good_gen,
+            )
+        assert result.phase_reached == "integrate"
+        assert result.change.failure_type == "environment"
+        # Check the operation log has an env_ gap, not the original cap name
+        log_lines = op_log.read_text().strip().splitlines()
+        env_entries = [
+            json.loads(l) for l in log_lines
+            if "missing_capability" in l and "env_" in l
+        ]
+        assert len(env_entries) >= 1
+        assert env_entries[-1]["missing_capability"].startswith("env_")

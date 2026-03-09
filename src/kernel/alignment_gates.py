@@ -98,7 +98,7 @@ def check_protected_file(ctx: ActionContext) -> GateResult:
     """Block writes to protected files."""
     if ctx.action_type != "file_write":
         return GateResult(True, "protected_file")
-    target = str(Path(ctx.target))
+    target = str(Path(ctx.target)).replace("\\", "/")
     for protected in PROTECTED_FILES:
         if target == protected or target.endswith("/" + protected):
             return GateResult(False, "protected_file",

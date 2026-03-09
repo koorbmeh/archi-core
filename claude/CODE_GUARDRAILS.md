@@ -63,6 +63,19 @@ lines. A codebase readable in one session is a feature.
 
 ---
 
+## Protected File Exception Protocol
+
+`alignment_gates.py` may be modified by Jesse (via Cowork) under two conditions:
+(1) the change is a bug fix that does not weaken any constraint, and
+(2) the reason is documented here.
+
+Exception 1: 2026-03-09 — Windows path separator normalization.
+`str(Path())` produces backslashes on Windows, breaking protected file
+comparisons against forward-slash strings in PROTECTED_FILES.
+Fix: `.replace("\\", "/")` on line 101.
+
+---
+
 ## Established Conventions
 
 - Session logs are append-only: new dated file each session, never edit old ones. 2026-03-09

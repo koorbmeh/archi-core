@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 6)
+Last updated: 2026-03-09 (session 7)
 
 ---
 
@@ -48,11 +48,11 @@ Starting model (until Archi develops its own selection strategy):
 ## Kernel Status
 
 ### Built — ALL KERNEL COMPONENTS COMPLETE
-- [x] src/kernel/self_modifier.py — 116 lines, 13 tests. Session 1.
+- [x] src/kernel/self_modifier.py — 138 lines, 18 tests. Session 1 (+session 7).
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
-- [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
+- [x] src/kernel/gap_detector.py — 155 lines, 17 tests. Session 2 (+session 7).
 - [x] src/kernel/model_interface.py — 204 lines, 23 tests. Session 3 (+session 6).
-- [x] src/kernel/generation_loop.py — 219 lines, 19 tests. Session 4 (+session 6).
+- [x] src/kernel/generation_loop.py — 230 lines, 20 tests. Session 4 (+sessions 6, 7).
 - [x] src/kernel/alignment_gates.py — 173 lines, 29 tests. Session 5.
 
 ### In Progress
@@ -81,11 +81,13 @@ To start Archi:
 
 ## Needs Jesse
 
-**First live run:** `python run.py` with API keys in .env. The dry-run
-shows "No gaps detected" because all kernel components are registered. To
-give Archi work, either add a dependency edge to an unbuilt capability in
-the registry, or create an operational failure log entry referencing a
-missing capability.
+**First live run:** `python run.py` with API keys in .env. The first gap
+Archi will detect is `user_communication` — seeded via operation_log.jsonl.
+
+**Comms fallback:** If Archi cannot reach its communication target (Discord
+down, bad token, etc.), it should fall back to appending messages to
+ARCHI_COMMS_FALLBACK_PATH (default: `data/archi_messages.txt`). This is
+Jesse's last resort for seeing what Archi is trying to say.
 
 *(All previous items resolved as of session 2.)*
 
@@ -117,6 +119,11 @@ missing capability.
 - pytest cleanup in sandbox throws PermissionError on tmp_path removal.
   Does not affect test results — cosmetic only. May need `--basetemp` flag
   pointed outside the mounted volume if it causes issues later.
+- Environment gaps are now classified and surfaced (session 7), but Archi
+  cannot yet *execute* environment repairs. The mechanism detects and logs
+  env_ gaps at priority 1.0 — Archi still needs to build a capability that
+  can act on them (e.g., running git config, fixing permissions). This is
+  the next gap after user_communication is working.
 
 ---
 
@@ -134,3 +141,4 @@ missing capability.
 - Session 4: 2026-03-09 — Built generation_loop.py. 74/74 tests passing.
 - Session 5: 2026-03-09 — Built alignment_gates.py. 103/103 tests passing. KERNEL COMPLETE.
 - Session 6: 2026-03-09 — Built run.py entry point. Wired gates + cost logging into loop. 106/106 tests passing.
+- Session 7: 2026-03-09 — Failure classification mechanism. Environment vs test vs unknown failures across self_modifier, generation_loop, gap_detector. Windows path fix in alignment_gates.py (Jesse-approved exception). 116/116 tests passing.

@@ -27,6 +27,7 @@ class ChangeResult:
     message: str
     test_output: str = ""
     error: Optional[str] = None
+    failure_type: str = "unknown"
 
 
 def _resolve_protected(file_path: str, repo_root: Path) -> bool:
@@ -62,6 +63,23 @@ def _run_tests(repo_root: Path) -> tuple[bool, str]:
         return False, "Test run timed out (120s limit)."
     except FileNotFoundError:
         return False, "pytest not found."
+
+
+_ENVIRONMENT_PATTERNS = [
+    "dubious ownership",
+    "safe.directory",
+    "permission denied",
+    "index.lock",
+]
+
+
+def _classify_failure(error_text: str) -> str:
+    """Classify an exception as environment vs unknown."""
+    lower = error_text.lower()
+    for pattern in _ENVIRONMENT_PATTERNS:
+        if pattern in lower:
+            return "environment"
+    return "unknown"
 
 
 def apply_change(repo_path: str, file_path: str, new_content: str) -> ChangeResult:
@@ -103,7 +121,8 @@ def apply_change(repo_path: str, file_path: str, new_content: str) -> ChangeResu
         repo.git.branch("-D", branch_name)
         msg = f"Rolled back {file_path} — tests failed."
         logger.warning(msg)
-        return ChangeResult(False, branch_name, file_path, msg, test_output)
+        return ChangeResult(False, branch_name, file_path, msg, test_output,
+                            failure_type="test_failure")
     except Exception as exc:
         logger.error("Exception during apply_change: %s", exc)
         try:
@@ -112,5 +131,7 @@ def apply_change(repo_path: str, file_path: str, new_content: str) -> ChangeResu
                 repo.git.branch("-D", branch_name)
         except Exception:
             logger.error("Cleanup failed after: %s", exc)
+        ftype = _classify_failure(str(exc))
         return ChangeResult(False, branch_name, file_path,
-                            f"Exception: {exc}", error=str(exc))
+                            f"Exception: {exc}", error=str(exc),
+                            failure_type=ftype)

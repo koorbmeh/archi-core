@@ -124,3 +124,50 @@ class TestDetectGaps:
         gaps = detect_gaps(empty_reg)
         priorities = [g.priority for g in gaps]
         assert priorities == sorted(priorities, reverse=True)
+
+
+class TestEnvironmentGaps:
+    """Environment gaps (env_ prefix) get special treatment."""
+
+    def test_env_gap_has_environment_source(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entry = {"event": "integrate_failed", "success": False,
+                 "missing_capability": "env_dubious_ownership"}
+        log.write_text(json.dumps(entry), encoding="utf-8")
+        gaps = detect_operational_gaps(log)
+        assert len(gaps) == 1
+        assert gaps[0].source == "environment"
+        assert gaps[0].name == "env_dubious_ownership"
+
+    def test_env_gap_has_priority_1(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entry = {"event": "integrate_failed", "success": False,
+                 "missing_capability": "env_git_safe_directory"}
+        log.write_text(json.dumps(entry), encoding="utf-8")
+        gaps = detect_operational_gaps(log)
+        assert gaps[0].priority == 1.0
+
+    def test_env_gap_priority_not_boosted_beyond_1(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": f"fail_{i}", "success": False,
+             "missing_capability": "env_permission_denied"}
+            for i in range(10)
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_operational_gaps(log)
+        assert gaps[0].priority == 1.0
+
+    def test_env_gap_outranks_capability_gap(self, empty_reg, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "fail", "success": False,
+             "missing_capability": "env_dubious_ownership"},
+            {"event": "fail", "success": False,
+             "missing_capability": "user_communication"},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(empty_reg, log_path=log)
+        env_gaps = [g for g in gaps if g.name.startswith("env_")]
+        cap_gaps = [g for g in gaps if g.name == "user_communication"]
+        assert env_gaps[0].priority >= cap_gaps[0].priority
