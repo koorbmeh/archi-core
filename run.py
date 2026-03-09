@@ -5,14 +5,18 @@ Loads config, wires the two-model routing, seeds the capability registry
 with the kernel components, and runs the generation loop.
 
 Usage:
-    python run.py              # run one cycle
+    python run.py              # run up to 5 cycles then exit
     python run.py --loop N     # run up to N cycles (stops when no gaps remain)
     python run.py --dry-run    # detect gaps and print them, no model calls
+    python run.py --daemon     # persistent mode — run cycles on a schedule, notify via Discord
 """
 
 import argparse
+import asyncio
 import logging
+import signal
 import sys
+import time
 from functools import partial
 from pathlib import Path
 
@@ -33,9 +37,10 @@ REGISTRY_PATH = Path("data/capability_registry.json")
 OP_LOG_PATH = Path("data/operation_log.jsonl")
 
 _GIT_LOCK_FILES = ["HEAD.lock", "index.lock"]
-
-
 _STALE_LOCK_AGE_SECONDS = 60
+
+# Daemon defaults
+DEFAULT_CYCLE_INTERVAL_SECONDS = 300  # 5 minutes
 
 
 def clean_stale_git_locks() -> None:
@@ -43,7 +48,6 @@ def clean_stale_git_locks() -> None:
 
     A lock is stale if it is zero bytes OR older than 60 seconds.
     """
-    import time
     git_dir = REPO_ROOT_PATH / ".git"
     log = logging.getLogger("archi.run")
     for lock_name in _GIT_LOCK_FILES:
@@ -139,12 +143,135 @@ def run_dry(registry: CapabilityRegistry) -> None:
     print()
 
 
+# ---------------------------------------------------------------------------
+# Discord notification helper (lazy import, graceful fallback)
+# ---------------------------------------------------------------------------
+
+def _discord_notify(text: str) -> bool:
+    """Send a Discord DM. Returns False silently if not configured."""
+    try:
+        from capabilities.discord_notifier import notify
+        return notify(text)
+    except ImportError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Daemon mode
+# ---------------------------------------------------------------------------
+
+class ArchiDaemon:
+    """Persistent Archi process that runs cycles on a schedule."""
+
+    def __init__(
+        self,
+        registry: CapabilityRegistry,
+        plan_fn,
+        codegen_fn,
+        interval: int = DEFAULT_CYCLE_INTERVAL_SECONDS,
+        max_cycles_per_wake: int = 5,
+    ):
+        self.registry = registry
+        self.plan_fn = plan_fn
+        self.codegen_fn = codegen_fn
+        self.interval = interval
+        self.max_cycles_per_wake = max_cycles_per_wake
+        self._running = False
+        self._logger = logging.getLogger("archi.daemon")
+
+    def _run_wake_cycle(self) -> None:
+        """Run up to max_cycles_per_wake cycles in one wake period."""
+        clean_stale_git_locks()
+        reset_session()
+
+        for cycle_num in range(1, self.max_cycles_per_wake + 1):
+            self._logger.info("--- Wake cycle %d of %d ---", cycle_num, self.max_cycles_per_wake)
+            result = run_cycle(
+                REPO_ROOT, self.registry, OP_LOG_PATH,
+                plan_fn=self.plan_fn, generate_fn=self.codegen_fn,
+            )
+            print_result(result, cycle_num)
+
+            if result.phase_reached == "observe":
+                self._logger.info("No gaps remain. Sleeping until next wake.")
+                break
+            if result.error and "budget" in result.error.lower():
+                self._logger.warning("Budget limit hit — sleeping until next wake.")
+                break
+
+        self._logger.info("Wake session cost: $%.4f", get_session_cost())
+
+    async def run(self) -> None:
+        """Main daemon loop — run cycles, sleep, repeat."""
+        self._running = True
+        loop = asyncio.get_running_loop()
+
+        # Register signal handlers for graceful shutdown
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, self._shutdown, sig)
+            except (NotImplementedError, RuntimeError):
+                # Windows doesn't support add_signal_handler
+                pass
+
+        # Startup notification
+        cap_count = len(self.registry.list_active())
+        _discord_notify(
+            f"Archi is online. {cap_count} capabilities registered. "
+            f"Monitoring for gaps every {self.interval}s."
+        )
+        self._logger.info(
+            "Archi daemon started. %d capabilities. Cycle interval: %ds.",
+            cap_count, self.interval,
+        )
+
+        try:
+            while self._running:
+                self._run_wake_cycle()
+                if not self._running:
+                    break
+                self._logger.info("Sleeping %ds until next wake...", self.interval)
+                # Sleep in small increments so shutdown signal is responsive
+                for _ in range(self.interval):
+                    if not self._running:
+                        break
+                    await asyncio.sleep(1)
+        finally:
+            _discord_notify("Archi going offline.")
+            self._logger.info("Archi daemon stopped.")
+
+    def _shutdown(self, sig) -> None:
+        self._logger.info("Received %s — shutting down.", sig.name if hasattr(sig, 'name') else sig)
+        self._running = False
+
+
+def run_daemon(registry: CapabilityRegistry, interval: int) -> None:
+    """Entry point for daemon mode."""
+    plan_fn = make_plan_fn()
+    codegen_fn = make_codegen_fn()
+    daemon = ArchiDaemon(registry, plan_fn, codegen_fn, interval=interval)
+
+    try:
+        asyncio.run(daemon.run())
+    except KeyboardInterrupt:
+        pass  # Shutdown notification already sent in the finally block
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Archi's generation loop.")
     parser.add_argument("--loop", type=int, default=5, metavar="N",
                         help="Run up to N cycles (default: 5)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Detect gaps and print them; no model calls")
+    parser.add_argument("--daemon", action="store_true",
+                        help="Persistent mode — run cycles on a schedule, notify via Discord")
+    parser.add_argument("--interval", type=int, default=DEFAULT_CYCLE_INTERVAL_SECONDS,
+                        metavar="S",
+                        help=f"Daemon cycle interval in seconds (default: {DEFAULT_CYCLE_INTERVAL_SECONDS})")
     args = parser.parse_args()
 
     setup_logging()
@@ -160,7 +287,17 @@ def main() -> int:
         run_dry(registry)
         return 0
 
-    # Show routing config
+    if args.daemon:
+        # Show routing config
+        plan_p, plan_m = get_task_config("plan")
+        code_p, code_m = get_task_config("codegen")
+        logger.info("Plan model:    %s/%s", plan_p, plan_m)
+        logger.info("Codegen model: %s/%s", code_p, code_m)
+        logger.info("Daemon mode — interval: %ds", args.interval)
+        run_daemon(registry, args.interval)
+        return 0
+
+    # Normal one-shot mode
     plan_p, plan_m = get_task_config("plan")
     code_p, code_m = get_task_config("codegen")
     logger.info("Plan model:    %s/%s", plan_p, plan_m)

@@ -25,6 +25,12 @@ except ImportError:
     def build_api_context(registry=None):  # type: ignore[misc]
         return ""
 
+try:
+    from capabilities.discord_notifier import notify as _discord_notify
+except ImportError:
+    def _discord_notify(text: str) -> bool:  # type: ignore[misc]
+        return False
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_OP_LOG = Path("data/operation_log.jsonl")
@@ -62,6 +68,32 @@ class CycleResult:
     change: Optional[ChangeResult] = None
     capability_registered: bool = False
     error: Optional[str] = None
+
+
+def _notify_cycle_result(result: "CycleResult") -> None:
+    """Send a Discord notification summarizing a cycle outcome."""
+    try:
+        cost = f"${get_session_cost():.4f}"
+        if result.capability_registered and result.gap:
+            msg = (
+                f"Integrated: {result.gap.name}\n"
+                f"File: {result.plan.get('file_path', '?') if result.plan else '?'}\n"
+                f"Session cost: {cost}"
+            )
+        elif result.error and result.gap:
+            msg = (
+                f"Failed: {result.gap.name} at {result.phase_reached} phase\n"
+                f"Reason: {result.error[:200]}\n"
+                f"Session cost: {cost}"
+            )
+        elif result.phase_reached == "observe":
+            # No gaps — not worth a notification every time
+            return
+        else:
+            return
+        _discord_notify(msg)
+    except Exception as exc:
+        logger.debug("Discord notification failed (non-fatal): %s", exc)
 
 
 def _log_operation(event: str, success: bool, detail: str = "",
@@ -237,8 +269,10 @@ def run_cycle(
         else:
             _log_operation("integrate_failed", False, detail=change.message,
                            missing_cap=gap.name, log_path=op_log)
-        return CycleResult(phase_reached="integrate", gap=gap, plan=plan,
-                           change=change, error=change.message)
+        fail_result = CycleResult(phase_reached="integrate", gap=gap, plan=plan,
+                                  change=change, error=change.message)
+        _notify_cycle_result(fail_result)
+        return fail_result
 
     # Register the new capability
     cap = Capability(
@@ -252,10 +286,12 @@ def run_cycle(
     _log_operation("capability_integrated", True, detail=gap.name, log_path=op_log)
     logger.info("Cycle complete — integrated %s.", gap.name)
 
-    return CycleResult(
+    success_result = CycleResult(
         phase_reached="integrate",
         gap=gap,
         plan=plan,
         change=change,
         capability_registered=True,
     )
+    _notify_cycle_result(success_result)
+    return success_result
