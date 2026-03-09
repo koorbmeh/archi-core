@@ -51,7 +51,8 @@ def _run_tests(repo_root: Path) -> tuple[bool, str]:
         return True, "No tests/ directory — skipped."
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
+            ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short",
+             "--basetemp", str(repo_root / ".pytest_tmp")],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
