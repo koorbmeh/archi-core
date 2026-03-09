@@ -144,6 +144,13 @@ def detect_gaps(
             existing.source = _higher_source(existing.source, gap.source)
         else:
             all_gaps[gap.name] = gap
+    # Don't re-surface gaps for capabilities already registered and active.
+    # Structural and registry gaps handle their own filtering; this catches
+    # operational gaps that reference capabilities Archi has since built.
+    active = {c.name for c in registry.list_all() if c.status == "active"}
+    for name in list(all_gaps):
+        if name in active and all_gaps[name].source == "operational":
+            del all_gaps[name]
     return sorted(all_gaps.values(), key=lambda g: g.priority, reverse=True)
 
 

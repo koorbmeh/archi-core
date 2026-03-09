@@ -125,6 +125,24 @@ class TestDetectGaps:
         priorities = [g.priority for g in gaps]
         assert priorities == sorted(priorities, reverse=True)
 
+    def test_filters_out_active_operational_gaps(self, tmp_path):
+        """Operational gaps for already-active capabilities are not surfaced."""
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        # Register all kernel components + user_communication as active
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description=f"{name} cap"))
+        reg.register(Capability("user_communication", "caps/uc.py", "comms", status="active"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "fail", "success": False, "missing_capability": "user_communication"},
+            {"event": "fail", "success": False, "missing_capability": "push_notification"},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "user_communication" not in gap_names
+        assert "push_notification" in gap_names
+
 
 class TestEnvironmentGaps:
     """Environment gaps (env_ prefix) get special treatment."""

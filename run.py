@@ -110,8 +110,8 @@ def run_dry(registry: CapabilityRegistry) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Archi's generation loop.")
-    parser.add_argument("--loop", type=int, default=1, metavar="N",
-                        help="Run up to N cycles (default: 1)")
+    parser.add_argument("--loop", type=int, default=5, metavar="N",
+                        help="Run up to N cycles (default: 5)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Detect gaps and print them; no model calls")
     args = parser.parse_args()
