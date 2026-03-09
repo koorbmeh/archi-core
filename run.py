@@ -238,6 +238,12 @@ class ArchiDaemon:
                     await asyncio.sleep(1)
         finally:
             _discord_notify("Archi going offline.")
+            # Close the discord notifier's aiohttp session cleanly
+            try:
+                from capabilities.discord_notifier import shutdown as _discord_shutdown
+                await _discord_shutdown()
+            except Exception:
+                pass
             self._logger.info("Archi daemon stopped.")
 
     def _shutdown(self, sig) -> None:

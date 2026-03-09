@@ -65,3 +65,12 @@
 {"event": "capability_integrated", "success": true, "detail": "event_loop"}
 {"event": "cycle_no_gaps", "success": true}
 {"event": "integration_failure", "success": false, "missing_capability": "api_introspection", "detail": "Archi generates code that calls functions on its own modules without being able to verify those functions exist first. Needs a mechanism to introspect available module APIs before generating dependent code."}
+{"event": "gap_selected", "success": true, "detail": "api_introspection"}
+{"event": "plan_created", "success": true, "detail": "capabilities/api_introspection.py"}
+{"event": "code_generated", "success": true, "detail": "7404 chars"}
+{"event": "capability_integrated", "success": true, "detail": "api_introspection"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "feature_request", "success": false, "missing_capability": "discord_gateway", "detail": "Archi can send Discord DMs but cannot receive messages from Jesse. Needs a Discord bot gateway (WebSocket) connection to listen for incoming messages and respond. The bot token DISCORD_BOT_TOKEN is already available in the environment. Use the Discord Gateway API to maintain a persistent WebSocket connection, receive MESSAGE_CREATE events for the DM channel, and route them to Archi for processing."}

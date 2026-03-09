@@ -200,6 +200,12 @@ async def notify_async(text: str) -> bool:
     return await _notifier_instance.send_message(text)
 
 
+async def shutdown() -> None:
+    """Close the underlying aiohttp session. Call on process exit."""
+    if _notifier_instance is not None:
+        await _notifier_instance.close()
+
+
 def _register_capability() -> None:
     """Register the discord_notifier capability in the capability registry."""
     if _notifier_instance is None:
