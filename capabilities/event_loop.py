@@ -1,10 +1,14 @@
 """
 Event loop module for Archi's persistent asyncio runtime.
 
-Provides an infinite event loop that continuously monitors for user messages,
-detects capability gaps from operational history, and executes actions without
-exiting after each cycle. Integrates with Discord notifications, gap detection,
-and capability registry to maintain a responsive, self-improving agent runtime.
+Provides an infinite event loop that continuously monitors for capability gaps
+from operational history and executes actions without exiting after each cycle.
+Integrates with Discord notifications, gap detection, and capability registry
+to maintain a responsive, self-improving agent runtime.
+
+Note: Inbound message polling (receiving messages from Jesse via Discord)
+requires a bot gateway connection that does not exist yet. The poll task
+is stubbed and will log a warning until a gateway capability is built.
 """
 
 import asyncio
@@ -12,12 +16,12 @@ import logging
 import signal
 import sys
 from datetime import datetime, timedelta
-from typing import Callable, Coroutine, Dict, List, Optional
+from pathlib import Path
+from typing import Callable, Coroutine, List, Optional
 
-from capabilities import capability_registry
-from capabilities import gap_detector
-from capabilities import user_communication
-from capabilities import discord_notifier
+from capabilities.discord_notifier import notify_async
+from src.kernel.capability_registry import CapabilityRegistry
+from src.kernel.gap_detector import detect_gaps
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +157,7 @@ class EventLoop:
         self._setup_signal_handlers()
 
         logger.info("Archi persistent event loop starting at %s UTC.", datetime.utcnow().isoformat())
-        await discord_notifier.send_notification("Archi event loop started and running continuously.")
+        await notify_async("Archi event loop started and running continuously.")
 
         scheduler = asyncio.create_task(self._scheduler_loop(), name="archi_scheduler")
         self._asyncio_tasks.append(scheduler)
@@ -164,7 +168,7 @@ class EventLoop:
             logger.info("Scheduler task cancelled.")
         finally:
             await self._cancel_all_asyncio_tasks()
-            await discord_notifier.send_notification("Archi event loop has shut down gracefully.")
+            await notify_async("Archi event loop has shut down gracefully.")
             logger.info("Archi event loop shut down at %s UTC.", datetime.utcnow().isoformat())
 
     def run(self) -> None:
@@ -180,46 +184,47 @@ class EventLoop:
 # ---------------------------------------------------------------------------
 
 async def _poll_user_messages() -> None:
-    """Poll for new messages from Jesse and route responses."""
-    messages = await user_communication.fetch_new_messages()
-    if not messages:
-        return
-    for message in messages:
-        logger.info("Processing message from user: %s", message.get("id", "unknown"))
-        response = await user_communication.handle_message(message)
-        if response:
-            await discord_notifier.send_notification(response)
+    """Poll for new messages from Jesse.
+
+    Stub: Inbound message polling requires a Discord bot gateway connection
+    (discord_gateway capability) that has not been built yet. This task will
+    log a debug message and return until that capability exists.
+    """
+    logger.debug("poll_user_messages: no gateway capability yet — skipping.")
 
 
 async def _detect_capability_gaps() -> None:
-    """Analyse operational history for capability gaps and trigger remediation."""
-    history = await capability_registry.get_operational_history()
-    gaps = await gap_detector.detect_gaps(history)
+    """Analyse operational history for capability gaps and trigger logging."""
+    registry = CapabilityRegistry()
+    op_log = Path("data/operation_log.jsonl")
+    gaps = detect_gaps(registry, log_path=op_log)
     if not gaps:
         logger.debug("No capability gaps detected.")
         return
-    logger.info("Detected %d capability gap(s); initiating remediation.", len(gaps))
+    logger.info("Detected %d capability gap(s).", len(gaps))
+    summary_lines = []
     for gap in gaps:
-        logger.info("Gap: %s", gap)
-        await gap_detector.remediate_gap(gap)
-    summary = "\n".join(str(g) for g in gaps)
-    await discord_notifier.send_notification(f"Capability gaps detected and remediated:\n{summary}")
+        logger.info("Gap: %s (priority=%.2f, source=%s)", gap.name, gap.priority, gap.source)
+        summary_lines.append(f"- {gap.name} (priority={gap.priority:.2f})")
+    summary = "\n".join(summary_lines)
+    await notify_async(f"Capability gaps detected:\n{summary}")
 
 
 async def _send_heartbeat() -> None:
     """Emit a periodic heartbeat to confirm the event loop is alive."""
-    registered_count = await capability_registry.count_registered_capabilities()
-    logger.debug("Heartbeat — registered capabilities: %d", registered_count)
+    registry = CapabilityRegistry()
+    count = len(registry.list_all())
+    logger.debug("Heartbeat — registered capabilities: %d", count)
 
 
 async def _notify_critical_failure(task_name: str, exc: Exception) -> None:
     """Notify Jesse of a critically failing task via Discord."""
     message = (
-        f"⚠️ Critical: Archi task '{task_name}' has failed 5 or more times consecutively.\n"
+        f"Critical: Archi task '{task_name}' has failed 5 or more times consecutively.\n"
         f"Last error: {type(exc).__name__}: {exc}"
     )
     try:
-        await discord_notifier.send_notification(message)
+        await notify_async(message)
     except Exception as notify_exc:
         logger.error("Failed to send critical failure notification: %s", notify_exc)
 

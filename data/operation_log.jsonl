@@ -1,0 +1,67 @@
+{"event": "communication_attempt", "success": false, "missing_capability": "user_communication", "detail": "Archi has no mechanism to notify Jesse of cycle results, errors, questions, or status. Jesse cannot observe what Archi is doing or respond to it."}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "4726 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Exception: Cmd('git') failed due to: exit code(128)\n  cmdline: git checkout -b archi/mod-fd854996\n  stderr: 'fatal: detected dubious ownership in repository at 'C:/Users/koorb/Repos/archi-core'\n'C:/Users/koorb/Repos/archi-core/.git' is owned by:\n\tNT VIRTUAL MACHINE/960E110C-FC59-5B4B-843D-68737D617893 (S-1-5-83-1-2517504268-1531706457-1936211332-2474140029)\nbut the current user is:\n\tMSI/koorb (S-1-5-21-154837198-2974407819-1812088652-1001)\nTo add an exception for this directory, call:\n\n\tgit config --global --add safe.directory C:/Users/koorb/Repos/archi-core'", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "5065 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Exception: Cmd('git') failed due to: exit code(128)\n  cmdline: git checkout -b archi/mod-506d3380\n  stderr: 'fatal: detected dubious ownership in repository at 'C:/Users/koorb/Repos/archi-core'\n'C:/Users/koorb/Repos/archi-core/.git' is owned by:\n\tNT VIRTUAL MACHINE/960E110C-FC59-5B4B-843D-68737D617893 (S-1-5-83-1-2517504268-1531706457-1936211332-2474140029)\nbut the current user is:\n\tMSI/koorb (S-1-5-21-154837198-2974407819-1812088652-1001)\nTo add an exception for this directory, call:\n\n\tgit config --global --add safe.directory C:/Users/koorb/Repos/archi-core'", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "6481 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "7019 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "6063 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "4250 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "8552 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "6621 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Exception: Cmd('git') failed due to: exit code(128)\n  cmdline: git checkout -b archi/mod-d2715bf3\n  stderr: 'error: cannot lock ref 'HEAD': Unable to create 'C:/Users/koorb/Repos/archi-core/.git/HEAD.lock': File exists.\n\nAnother git process seems to be running in this repository, e.g.\nan editor opened by 'git commit'. Please make sure all processes\nare terminated then try again. If it still fails, a git process\nmay have crashed in this repository earlier:\nremove the file manually to continue.\nfatal: unable to update HEAD'", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "8469 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/user_communication.py \u2014 tests failed.", "missing_capability": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "4648 chars"}
+{"event": "capability_integrated", "success": true, "detail": "user_communication"}
+{"event": "notification_attempt", "success": false, "missing_capability": "push_notification", "detail": "user_communication can only reach Jesse when he is actively watching the terminal. Archi has no way to push alerts, questions, or status updates when Jesse is away from the machine. DISCORD_BOT_TOKEN and JESSE_DISCORD_ID are available in environment but unused."}
+{"event": "gap_selected", "success": true, "detail": "user_communication"}
+{"event": "plan_created", "success": true, "detail": "capabilities/user_communication.py"}
+{"event": "code_generated", "success": true, "detail": "9210 chars"}
+{"event": "capability_integrated", "success": true, "detail": "user_communication"}
+{"event": "gap_selected", "success": true, "detail": "push_notification"}
+{"event": "plan_created", "success": true, "detail": "capabilities/push_notification.py"}
+{"event": "code_generated", "success": true, "detail": "10108 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Exception: Cmd('git') failed due to: exit code(128)\n  cmdline: git checkout -b archi/mod-635772e0\n  stderr: 'error: cannot lock ref 'HEAD': Unable to create 'C:/Users/koorb/Repos/archi-core/.git/HEAD.lock': File exists.\n\nAnother git process seems to be running in this repository, e.g.\nan editor opened by 'git commit'. Please make sure all processes\nare terminated then try again. If it still fails, a git process\nmay have crashed in this repository earlier:\nremove the file manually to continue.\nfatal: unable to update HEAD'", "missing_capability": "push_notification"}
+{"event": "gap_selected", "success": true, "detail": "push_notification"}
+{"event": "plan_created", "success": true, "detail": "capabilities/push_notification.py"}
+{"event": "code_generated", "success": true, "detail": "12900 chars"}
+{"event": "capability_integrated", "success": true, "detail": "push_notification"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "discord_communication_attempt", "success": false, "missing_capability": "discord_notifier", "detail": "Archi has no Discord integration. DISCORD_BOT_TOKEN and JESSE_DISCORD_ID are present in environment. Jesse uses Discord on mobile and receives push notifications from it. This is the preferred channel for Archi to reach Jesse asynchronously."}
+{"event": "interaction_attempt", "success": false, "missing_capability": "event_loop", "detail": "Archi has no persistent process. It cannot receive messages from Jesse, respond to requests, or run continuously. It starts, closes gaps, and exits. Jesse cannot talk to Archi or give it direction without editing files manually."}
+{"event": "gap_selected", "success": true, "detail": "discord_notifier"}
+{"event": "plan_created", "success": true, "detail": "capabilities/discord_notifier.py"}
+{"event": "code_generated", "success": true, "detail": "7942 chars"}
+{"event": "capability_integrated", "success": true, "detail": "discord_notifier"}
+{"event": "gap_selected", "success": true, "detail": "event_loop"}
+{"event": "plan_created", "success": true, "detail": "capabilities/event_loop.py"}
+{"event": "code_generated", "success": true, "detail": "9934 chars"}
+{"event": "capability_integrated", "success": true, "detail": "event_loop"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "integration_failure", "success": false, "missing_capability": "api_introspection", "detail": "Archi generates code that calls functions on its own modules without being able to verify those functions exist first. Needs a mechanism to introspect available module APIs before generating dependent code."}
