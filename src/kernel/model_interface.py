@@ -13,6 +13,8 @@ from typing import Optional
 import anthropic
 import httpx
 
+from src.kernel.alignment_gates import log_cost
+
 logger = logging.getLogger(__name__)
 
 # Cost table (USD per 1M tokens) — Archi can extend via registry metadata.
@@ -58,10 +60,24 @@ def _estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float:
 
 
 def _get_config() -> tuple[str, str]:
-    """Read provider and model from environment."""
+    """Read default provider and model from environment."""
     provider = os.environ.get("ARCHI_PROVIDER", "anthropic").lower()
     model = os.environ.get("ARCHI_MODEL", "claude-sonnet-4-6")
     return provider, model
+
+
+def get_task_config(task: str) -> tuple[str, str]:
+    """Read provider/model for a named task type (e.g. 'plan', 'codegen').
+
+    Checks ARCHI_{TASK}_PROVIDER and ARCHI_{TASK}_MODEL env vars.
+    Falls back to default config if task-specific vars are unset.
+    """
+    prefix = f"ARCHI_{task.upper()}"
+    provider = os.environ.get(f"{prefix}_PROVIDER", "").lower()
+    model = os.environ.get(f"{prefix}_MODEL", "")
+    if provider and model:
+        return provider, model
+    return _get_config()
 
 def _get_budget() -> float:
     raw = os.environ.get("ARCHI_SESSION_BUDGET")
@@ -173,6 +189,7 @@ def call_model(
         )
 
     _session_cost += result.cost_estimate
+    log_cost(result.cost_estimate, detail=f"{provider}/{model}")
     logger.info(
         "Model call: %s/%s — %d in, %d out, $%.6f (session total $%.4f)",
         provider, model, result.tokens_in, result.tokens_out,

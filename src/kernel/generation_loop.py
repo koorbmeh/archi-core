@@ -10,9 +10,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
+from src.kernel.alignment_gates import ActionContext, check_gates
 from src.kernel.capability_registry import Capability, CapabilityRegistry
 from src.kernel.gap_detector import Gap, detect_gaps
-from src.kernel.model_interface import BudgetExceededError, ModelResponse, call_model
+from src.kernel.model_interface import (
+    BudgetExceededError, ModelResponse, call_model, get_session_cost,
+)
 from src.kernel.self_modifier import ChangeResult, apply_change
 
 logger = logging.getLogger(__name__)
@@ -103,7 +106,17 @@ def run_cycle(
     logger.info("Top gap: %s (priority %.2f, source=%s)", gap.name, gap.priority, gap.source)
     _log_operation("gap_selected", True, detail=gap.name, log_path=op_log)
 
-    # --- Phase 2: Plan ---
+    # --- Phase 2: Plan (pre-flight gate check) ---
+    gate_ctx = ActionContext(
+        action_type="model_call", target="plan",
+        estimated_cost=0.01,  # conservative estimate for a plan call
+    )
+    gate_failures = check_gates(gate_ctx, session_cost=get_session_cost())
+    if gate_failures:
+        reasons = "; ".join(f.reason for f in gate_failures)
+        _log_operation("plan_gate_blocked", False, detail=reasons, log_path=op_log)
+        return CycleResult(phase_reached="plan", gap=gap, error=f"Gate blocked: {reasons}")
+
     plan_prompt = (
         f"Capability gap to close:\n"
         f"  Name: {gap.name}\n"
@@ -134,7 +147,18 @@ def run_cycle(
     logger.info("Plan: %s → %s", plan["file_path"], plan["description"])
     _log_operation("plan_created", True, detail=plan["file_path"], log_path=op_log)
 
-    # --- Phase 3: Generate Code ---
+    # --- Phase 3: Generate Code (pre-flight gate check) ---
+    gate_ctx = ActionContext(
+        action_type="model_call", target="generate",
+        estimated_cost=0.02,  # conservative estimate for a codegen call
+    )
+    gate_failures = check_gates(gate_ctx, session_cost=get_session_cost())
+    if gate_failures:
+        reasons = "; ".join(f.reason for f in gate_failures)
+        _log_operation("generate_gate_blocked", False, detail=reasons, log_path=op_log)
+        return CycleResult(phase_reached="generate", gap=gap, plan=plan,
+                           error=f"Gate blocked: {reasons}")
+
     gen_prompt = (
         f"Write a Python module for this plan:\n"
         f"  File: {plan['file_path']}\n"

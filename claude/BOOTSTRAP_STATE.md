@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 5)
+Last updated: 2026-03-09 (session 6)
 
 ---
 
@@ -51,8 +51,8 @@ Starting model (until Archi develops its own selection strategy):
 - [x] src/kernel/self_modifier.py — 116 lines, 13 tests. Session 1.
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
 - [x] src/kernel/gap_detector.py — 150 lines, 13 tests. Session 2.
-- [x] src/kernel/model_interface.py — 188 lines, 20 tests. Session 3.
-- [x] src/kernel/generation_loop.py — 199 lines, 19 tests. Session 4.
+- [x] src/kernel/model_interface.py — 204 lines, 23 tests. Session 3 (+session 6).
+- [x] src/kernel/generation_loop.py — 219 lines, 19 tests. Session 4 (+session 6).
 - [x] src/kernel/alignment_gates.py — 173 lines, 29 tests. Session 5.
 
 ### In Progress
@@ -65,25 +65,27 @@ Starting model (until Archi develops its own selection strategy):
 
 ## Next Priority
 
-**Run the generation loop end-to-end against a live model.**
+**Ready for first live run.**
 
-All six kernel components are built. The next step is to wire alignment gates
-into the generation loop as a pre-flight check, then run one full cycle with
-a real model call. When that succeeds, Cowork's job is done and Archi can
-begin developing itself.
+All six kernel components are built and wired. run.py is the entry point.
+Alignment gates are wired as pre-flight checks in the generation loop.
+Cost logging is wired into model_interface after each call. Two-model
+routing reads from ARCHI_PLAN_PROVIDER/MODEL and ARCHI_CODEGEN_PROVIDER/MODEL.
 
-Optional refinements before first live run:
-- Wire check_gates() into generation_loop.run_cycle() before plan/generate phases
-- Wire log_cost() into model_interface.call_model() after each call
+To start Archi:
+    python run.py --dry-run    # see what gaps exist (no API calls)
+    python run.py              # run one generation cycle
+    python run.py --loop 5     # run up to 5 cycles
 
 ---
 
 ## Needs Jesse
 
-**First live run:** When you're ready, run generation_loop.run_cycle() with a
-real API key. The kernel will detect its own gaps, ask the model to plan and
-generate code, test it, and integrate on success. That's Archi's first
-autonomous act.
+**First live run:** `python run.py` with API keys in .env. The dry-run
+shows "No gaps detected" because all kernel components are registered. To
+give Archi work, either add a dependency edge to an unbuilt capability in
+the registry, or create an operational failure log entry referencing a
+missing capability.
 
 *(All previous items resolved as of session 2.)*
 
@@ -97,11 +99,14 @@ autonomous act.
 
 ## Open Questions
 
-- Which model for generation_loop code generation tasks — Sonnet for all, or
-  a cheaper model for planning steps and Sonnet only for code output?
-  Jesse's .env suggests: grok-4-1-fast-reasoning as PRIMARY, Sonnet for codegen.
+*(none)*
 
 ### Resolved
+- **Model routing (session 6):** Planning/orchestration/gap analysis → Grok 4.1
+  Fast Reasoning (xai). Code generation/file writing → Claude Sonnet 4.6
+  (anthropic). Cost tracking required on both. Archi to develop smarter routing
+  over time. Already supported: generation_loop accepts separate plan_fn and
+  generate_fn callables. Env vars: ARCHI_PLAN_PROVIDER/MODEL, ARCHI_CODEGEN_PROVIDER/MODEL.
 - capability_registry uses JSON. (Session 2.)
 - gap_detector reads from capability_registry + operation logs. (Session 2.)
 
@@ -128,3 +133,4 @@ autonomous act.
 - Session 3: 2026-03-09 — Built model_interface.py. 55/55 tests passing.
 - Session 4: 2026-03-09 — Built generation_loop.py. 74/74 tests passing.
 - Session 5: 2026-03-09 — Built alignment_gates.py. 103/103 tests passing. KERNEL COMPLETE.
+- Session 6: 2026-03-09 — Built run.py entry point. Wired gates + cost logging into loop. 106/106 tests passing.

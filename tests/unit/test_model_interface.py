@@ -18,6 +18,7 @@ from src.kernel.model_interface import (
     _get_config,
     call_model,
     get_session_cost,
+    get_task_config,
     reset_session,
 )
 
@@ -235,3 +236,36 @@ class TestUnknownProvider:
         result = call_model("Hi", provider="nonexistent")
         assert result.error is not None
         assert "Unknown provider" in result.error
+
+
+# --- Task-specific config ---
+
+class TestGetTaskConfig:
+    def test_returns_task_specific_when_set(self):
+        with patch.dict(os.environ, {
+            "ARCHI_PLAN_PROVIDER": "xai",
+            "ARCHI_PLAN_MODEL": "grok-4-1-fast-reasoning",
+        }):
+            provider, model = get_task_config("plan")
+            assert provider == "xai"
+            assert model == "grok-4-1-fast-reasoning"
+
+    def test_falls_back_to_default_when_unset(self):
+        env = {"ARCHI_PROVIDER": "anthropic", "ARCHI_MODEL": "claude-sonnet-4-6"}
+        with patch.dict(os.environ, env, clear=False):
+            # Remove task-specific vars if they exist
+            for key in ("ARCHI_CODEGEN_PROVIDER", "ARCHI_CODEGEN_MODEL"):
+                os.environ.pop(key, None)
+            provider, model = get_task_config("codegen")
+            assert provider == "anthropic"
+            assert model == "claude-sonnet-4-6"
+
+    def test_falls_back_when_only_provider_set(self):
+        """Partial task config (provider only) falls back to default."""
+        env = {"ARCHI_PROVIDER": "anthropic", "ARCHI_MODEL": "claude-sonnet-4-6",
+               "ARCHI_PLAN_PROVIDER": "xai"}
+        with patch.dict(os.environ, env, clear=False):
+            os.environ.pop("ARCHI_PLAN_MODEL", None)
+            provider, model = get_task_config("plan")
+            assert provider == "anthropic"  # fell back
+            assert model == "claude-sonnet-4-6"
