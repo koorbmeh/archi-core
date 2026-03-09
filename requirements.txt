@@ -1,0 +1,19 @@
+# Archi-Core requirements
+# Keep this minimal. Add dependencies only when the kernel explicitly needs them.
+
+# Model providers (uncomment what you're using)
+anthropic>=0.40.0
+# openai>=1.0.0  # for Grok via xAI or OpenRouter
+
+# Git operations (needed by self_modifier.py)
+gitpython>=3.1.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Utilities
+pathlib2>=2.3.0; python_version < "3.4"
