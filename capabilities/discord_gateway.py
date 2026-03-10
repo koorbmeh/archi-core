@@ -62,6 +62,14 @@ class ArchiBotClient(discord.Client):
 
     async def on_ready(self):
         logger.info("Discord gateway connected as %s (id=%s)", self.user, self.user.id)
+        # Show Archi as "Online" with a status message in Discord
+        await self.change_presence(
+            status=discord.Status.online,
+            activity=discord.Activity(
+                type=discord.ActivityType.watching,
+                name="for capability gaps",
+            ),
+        )
 
     async def on_message(self, message: discord.Message):
         if message.author.bot:
@@ -108,6 +116,7 @@ async def _run_bot_with_reconnect(token: str, target_user_id: int, receive_fn) -
             await client.start(token, reconnect=True)
         except discord.LoginFailure:
             logger.error("Discord login failed; check DISCORD_BOT_TOKEN. Aborting gateway.")
+            await client.close()
             break
         except asyncio.CancelledError:
             logger.info("Discord gateway task cancelled; shutting down")
@@ -120,6 +129,7 @@ async def _run_bot_with_reconnect(token: str, target_user_id: int, receive_fn) -
             backoff = min(backoff * 2, max_backoff)
         else:
             logger.info("Discord gateway bot exited cleanly")
+            await client.close()
             break
 
 
