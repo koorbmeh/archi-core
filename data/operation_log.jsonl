@@ -84,3 +84,12 @@
 {"event": "code_generated", "success": true, "detail": "8214 chars"}
 {"event": "capability_integrated", "success": true, "detail": "discord_listener"}
 {"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluation_attempt", "success": false, "missing_capability": "self_evaluator", "detail": "Archi has no mechanism to periodically reflect on whether it is actually serving Jesse well. It reacts to failures and explicit requests but never proactively asks: what do I not know about Jesse that I should? what patterns in our interactions should I be learning from? what am I doing that could be done better? what is Jesse's life like and how could I be more useful in it? Archi needs a structured self-evaluation loop that surfaces improvement opportunities from reflection, not just from failure."}
