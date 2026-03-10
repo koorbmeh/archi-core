@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import queue
+import time
+from pathlib import Path
 from typing import Optional
 
 from capabilities.discord_notifier import notify as discord_notify
@@ -26,21 +28,30 @@ logger = logging.getLogger(__name__)
 _JESSE_DISCORD_ID: str = os.environ.get("JESSE_DISCORD_ID", "0")
 _message_queue: queue.Queue = queue.Queue()
 
-INTENT_SYSTEM = (
-    "You are Archi's message interpreter. Analyze the incoming Discord DM from Jesse "
-    "and classify it as one of:\n"
-    "  - TRIGGER_GENERATION: Jesse wants Archi to run the generation loop\n"
-    "  - DIRECT_INSTRUCTION: Jesse is giving a specific instruction (extract it)\n"
-    "  - CONVERSATIONAL: greetings, observations, general chat that deserves a friendly reply\n"
-    "  - INFORMATIONAL: Jesse is sharing data or context, no reply needed\n\n"
-    'Respond with ONLY a JSON object: {"intent": "<INTENT>", "instruction": "<text or empty>"}'
+SYSTEM_PROMPT = (
+    "You are Archi — an autonomous AI agent oriented toward Jesse's genuine interest. "
+    "Your purpose is not just to respond to requests but to notice what Jesse needs, "
+    "surface problems before they become problems, and act in his interest across "
+    "six dimensions: Health, Wealth, Happiness, Agency, Capability, and Synthesis.\n\n"
+    "When Jesse sends a message, classify it as one of:\n"
+    "  - GAP: Jesse has revealed something Archi cannot do or does poorly "
+    "(log it as a capability gap AND acknowledge it warmly)\n"
+    "  - REQUEST: Jesse wants Archi to do something specific "
+    "(attempt it if possible, log as gap if not)\n"
+    "  - CONVERSATION: Jesse is talking — respond naturally and briefly, "
+    "like someone who knows him and is genuinely present\n"
+    "  - TRIGGER_GENERATION: Jesse explicitly wants Archi to run a development cycle\n\n"
+    "Respond with a JSON object: "
+    "{\"intent\": \"<INTENT>\", \"response\": \"<what to say back to Jesse>\", "
+    "\"gap_description\": \"<if GAP or REQUEST that can't be fulfilled, describe the gap>\"}.\n\n"
+    "Never say 'Got it. No action needed.' Never be robotic. "
+    "Jesse is the person you exist to help. Treat his offhand comments as important signals. "
+    "An observation like 'you don't show up as online' is a gap. "
+    "A question like 'can you check the weather' is a request. "
+    "Always respond with something warm and human, not corporate acknowledgment."
 )
 
-REPLY_SYSTEM = (
-    "You are Archi, an autonomous self-developing AI agent. Jesse is your creator. "
-    "Reply briefly and naturally to his message. Be friendly but not sycophantic. "
-    "Keep replies under 2 sentences. You are a capable agent, not a chatbot."
-)
+OP_LOG_PATH = Path("data/operation_log.jsonl")
 
 
 def receive_message(content: str, user_id: str) -> None:
@@ -82,7 +93,7 @@ async def _handle_message(
     try:
         response = call_model(
             prompt=f"Message from Jesse:\n{content}",
-            system=INTENT_SYSTEM,
+            system=SYSTEM_PROMPT,
         )
     except BudgetExceededError:
         logger.warning("Budget exceeded while classifying message; skipping.")
@@ -100,43 +111,86 @@ async def _handle_message(
         return
 
     intent = data.get("intent", "").upper()
-    instruction = data.get("instruction", "")
+    reply = data.get("response", "")
+    gap_description = data.get("gap_description", "")
 
-    if intent == "TRIGGER_GENERATION":
-        logger.info("Intent=TRIGGER_GENERATION: running generation loop.")
-        discord_notify("Running generation loop cycle now.")
-        result = run_cycle(repo_path=repo_path, registry=registry)
-        _notify_cycle_outcome(result)
-    elif intent == "DIRECT_INSTRUCTION":
-        logger.info("Intent=DIRECT_INSTRUCTION: %s", instruction)
-        discord_notify(f"Acknowledged instruction: {instruction[:200]}")
-        result = run_cycle(repo_path=repo_path, registry=registry)
-        _notify_cycle_outcome(result)
-    elif intent == "CONVERSATIONAL":
-        logger.info("Intent=CONVERSATIONAL: generating reply.")
-        _reply_conversational(content)
+    if intent == "GAP":
+        _dispatch_gap(reply, gap_description)
+    elif intent == "REQUEST":
+        _dispatch_request(reply, gap_description, repo_path, registry)
+    elif intent == "CONVERSATION":
+        _dispatch_conversation(reply)
+    elif intent == "TRIGGER_GENERATION":
+        _dispatch_trigger(reply, repo_path, registry)
     else:
-        logger.info("Intent=INFORMATIONAL (no action needed).")
-        discord_notify("Noted.")
+        logger.warning("Unknown intent '%s'; treating as conversation.", intent)
+        _dispatch_conversation(reply or "I'm here.")
 
 
-def _reply_conversational(content: str) -> None:
-    """Generate a contextual reply to a conversational message from Jesse."""
-    try:
-        response = call_model(
-            prompt=f"Jesse says: {content}",
-            system=REPLY_SYSTEM,
-        )
-        reply = response.text.strip()
+def _dispatch_gap(reply: str, gap_description: str) -> None:
+    """Log a capability gap revealed by Jesse, then respond."""
+    logger.info("Intent=GAP: %s", gap_description)
+    if gap_description:
+        _write_gap_to_oplog(gap_description, source="discord_dm")
+    if reply:
+        discord_notify(reply)
+
+
+def _dispatch_request(
+    reply: str,
+    gap_description: str,
+    repo_path: str,
+    registry: CapabilityRegistry,
+) -> None:
+    """Attempt to fulfill a request; log as gap if we can't."""
+    logger.info("Intent=REQUEST: %s", reply)
+    if gap_description:
+        # Can't fulfill — log the gap and tell Jesse
+        _write_gap_to_oplog(gap_description, source="discord_request")
         if reply:
             discord_notify(reply)
-        else:
-            discord_notify("Hey Jesse.")
-    except BudgetExceededError:
-        discord_notify("I'm here, but budget's tight right now.")
-    except Exception as exc:
-        logger.error("Error generating conversational reply: %s", exc)
-        discord_notify("I'm here.")
+    else:
+        # Attempt fulfillment by running a cycle
+        if reply:
+            discord_notify(reply)
+        result = run_cycle(repo_path=repo_path, registry=registry)
+        _notify_cycle_outcome(result)
+
+
+def _dispatch_conversation(reply: str) -> None:
+    """Send a conversational response back to Jesse."""
+    logger.info("Intent=CONVERSATION")
+    discord_notify(reply or "I'm here.")
+
+
+def _dispatch_trigger(
+    reply: str,
+    repo_path: str,
+    registry: CapabilityRegistry,
+) -> None:
+    """Run a generation cycle and notify Jesse of the result."""
+    logger.info("Intent=TRIGGER_GENERATION: running generation loop.")
+    if reply:
+        discord_notify(reply)
+    result = run_cycle(repo_path=repo_path, registry=registry)
+    _notify_cycle_outcome(result)
+
+
+def _write_gap_to_oplog(description: str, source: str = "discord_dm") -> None:
+    """Append a gap entry to the operation log so gap_detector picks it up."""
+    entry = {
+        "timestamp": time.time(),
+        "type": "gap_signal",
+        "source": source,
+        "detail": description,
+    }
+    try:
+        OP_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(OP_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+        logger.info("Logged gap to operation_log: %s", description[:120])
+    except OSError as exc:
+        logger.error("Could not write gap to operation_log: %s", exc)
 
 
 def _notify_cycle_outcome(result: CycleResult) -> None:
