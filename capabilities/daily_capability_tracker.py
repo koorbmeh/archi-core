@@ -116,7 +116,18 @@ def _compute_weekly_report() -> str:
         f"Stay consistent to close gaps!"
     )
 
+def _ensure_initialized() -> None:
+    """Auto-initialize paths if initialize() was never called."""
+    global DATA_DIR, ENTRIES_PATH, PROMPTS_PATH
+    if PROMPTS_PATH is None:
+        DATA_DIR = Path("data")
+        ENTRIES_PATH = DATA_DIR / "capability_entries.jsonl"
+        PROMPTS_PATH = DATA_DIR / "capability_prompts.jsonl"
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
 async def daily_prompt_coro() -> None:
+    _ensure_initialized()
     date_str = date.today().isoformat()
     if has_prompt_today(date_str) or has_entry_for_date(date_str):
         return
@@ -130,6 +141,7 @@ async def daily_prompt_coro() -> None:
     store_prompt(date_str, time.time())
 
 async def check_responses_coro() -> None:
+    _ensure_initialized()
     date_str = date.today().isoformat()
     if not (has_prompt_today(date_str) and not has_entry_for_date(date_str)):
         return
@@ -143,6 +155,7 @@ async def check_responses_coro() -> None:
             return
 
 async def weekly_summary_coro() -> None:
+    _ensure_initialized()
     report = _compute_weekly_report()
     if report:
         await notify_async(report)

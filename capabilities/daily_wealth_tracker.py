@@ -19,7 +19,10 @@ from src.kernel.capability_registry import CapabilityRegistry, Capability
 
 from capabilities.conversational_memory import get_context, store_message
 from capabilities.discord_notifier import notify_async
-from capabilities.discord_listener import message_queue
+try:
+    from capabilities.discord_listener import _message_queue as message_queue
+except ImportError:
+    message_queue = None  # process_one() is unused; discord_listener routes messages
 from capabilities.event_loop import EventLoop, PeriodicTask
 from capabilities.image_ocr import process_discord_attachments, ocr_summary
 

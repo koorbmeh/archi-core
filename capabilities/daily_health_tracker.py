@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from src.kernel.capability_registry import Capability, CapabilityRegistry
-from src.kernel.event_loop import EventLoop, PeriodicTask
+from capabilities.event_loop import EventLoop, PeriodicTask  # deprecated stubs
 from capabilities.conversational_memory import get_recent_messages
 from capabilities.discord_notifier import notify_async
 

@@ -109,7 +109,18 @@ def has_prompt_today(date_str: str) -> bool:
                 continue
     return False
 
+def _ensure_initialized() -> None:
+    """Auto-initialize paths if initialize() was never called."""
+    global _data_dir, _agency_entries_path, _agency_prompts_path
+    if _agency_prompts_path is None:
+        _data_dir = Path("data")
+        _agency_entries_path = _data_dir / "agency_entries.jsonl"
+        _agency_prompts_path = _data_dir / "agency_prompts.jsonl"
+        _data_dir.mkdir(parents=True, exist_ok=True)
+
+
 async def daily_prompt_coro() -> None:
+    _ensure_initialized()
     today_str = date.today().isoformat()
     if has_entry_for_date(today_str) or has_prompt_today(today_str):
         return
@@ -128,6 +139,7 @@ Progress: Advanced on main goal Y by 50%."""
     store_prompt(today_str, time.time())
 
 async def check_responses_coro() -> None:
+    _ensure_initialized()
     today_str = date.today().isoformat()
     if has_entry_for_date(today_str):
         return
@@ -161,6 +173,7 @@ async def check_trends_and_notify_async(date_str: str) -> None:
         await notify_async(f"🚀 Strong agency! Avg {avg:.1f}/10. Your decisions are driving progress.")
 
 async def weekly_summary_coro() -> None:
+    _ensure_initialized()
     today = date.today()
     if today.weekday() != 6:  # Sunday
         return

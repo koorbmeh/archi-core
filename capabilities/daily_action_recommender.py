@@ -163,3 +163,20 @@ class DailyActionRecommender:
                         " and pick 1 key fix today. (Expected: +1-2 score boost)"
                     ]
         return actions
+
+
+# Module-level singleton and async wrapper for periodic_registry
+_default_recommender: Optional[DailyActionRecommender] = None
+
+
+def _get_recommender() -> DailyActionRecommender:
+    global _default_recommender
+    if _default_recommender is None:
+        _default_recommender = DailyActionRecommender()
+    return _default_recommender
+
+
+async def daily_recommendation_coro() -> None:
+    """Module-level wrapper so periodic_registry can resolve this coroutine."""
+    recommender = _get_recommender()
+    await recommender.daily_recommendation_coro()
