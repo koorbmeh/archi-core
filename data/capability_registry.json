@@ -240,5 +240,202 @@
       "gap_logging_sync"
     ],
     "metadata": {}
+  },
+  {
+    "name": "message_recall_by_timestamp",
+    "module": "capabilities/message_recall_by_timestamp.py",
+    "description": "Retrieves specific messages from a user's conversation history using human-readable timestamps like '9:48 PM' by parsing and matching against stored timestamps.",
+    "status": "active",
+    "dependencies": [
+      "timestamped_chat_history_recall"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "overnight_self_improvement",
+    "module": "capabilities/overnight_self_improvement.py",
+    "description": "Provides autonomous overnight self-improvement by analyzing conversation history, capability usage, operational gaps, and Jesse's goals across Health, Wealth, Happiness, Agency, Capability, and Synthesis dimensions to implement targeted enhancements.",
+    "status": "active",
+    "dependencies": [
+      "self_evaluator",
+      "conversational_memory",
+      "timestamped_chat_history_recall",
+      "capability_registry",
+      "gap_detector",
+      "generation_loop",
+      "self_modifier",
+      "discord_notifier",
+      "user_communication"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_message_recall_by_timestamp",
+    "module": "capabilities/discord_listener.py",
+    "description": "Integrate the message_recall_by_timestamp capability into the Discord listener's message processing pipeline to handle user requests for recalling messages by human-readable timestamps.",
+    "status": "active",
+    "dependencies": [
+      "message_recall_by_timestamp"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_overnight_self_improvement",
+    "module": "run.py",
+    "description": "Modify the main run.py entry point to import and invoke the overnight_self_improvement capability, integrating it into the event loop for periodic overnight execution.",
+    "status": "active",
+    "dependencies": [
+      "event_loop",
+      "overnight_self_improvement"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_health_tracker",
+    "module": "capabilities/daily_health_tracker.py",
+    "description": "Implements daily Discord DM prompts for Jesse's health metrics (sleep, steps, water, energy), parses responses from recent conversation history, stores data in JSON with trend analysis, and sends weekly summaries with rule-based insights integrated with conversational context.",
+    "status": "active",
+    "dependencies": [
+      "event_loop",
+      "discord_notifier",
+      "conversational_memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_health_tracker",
+    "module": "capabilities/integrate_daily_health_tracker.py",
+    "description": "Integrates the daily_health_tracker capability into the event_loop by adding a daily periodic task for health monitoring.",
+    "status": "active",
+    "dependencies": [
+      "daily_health_tracker",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_wealth_tracker",
+    "module": "capabilities/daily_wealth_tracker.py",
+    "description": "Implements daily Discord DM prompts for wealth metrics like expenses, income, investments, and net worth; parses user responses via natural language understanding; stores data persistently alongside health metrics for trends; and generates weekly summaries, overspending alerts, and optimization suggestions.",
+    "status": "active",
+    "dependencies": [
+      "daily_health_tracker",
+      "event_loop",
+      "discord_notifier",
+      "conversational_memory",
+      "model_interface"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_wealth_tracker",
+    "module": "capabilities/wire_daily_wealth_tracker.py",
+    "description": "Integrates the daily_wealth_tracker capability into the event loop as a daily periodic task, making it reachable and active for tracking Jesse's wealth.",
+    "status": "active",
+    "dependencies": [
+      "daily_wealth_tracker",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_happiness_tracker",
+    "module": "capabilities/daily_happiness_tracker.py",
+    "description": "Implements daily Discord DM prompts for happiness metrics (mood 1-10, three gratitudes, social interactions, stressors), parses responses via regex and simple heuristics, stores structured data in data/happiness_log.jsonl, and sends weekly DM summaries with trends and suggestions.",
+    "status": "active",
+    "dependencies": [
+      "discord_notifier",
+      "timestamped_chat_history_recall",
+      "conversational_memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_happiness_tracker",
+    "module": "capabilities/wire_daily_happiness_tracker.py",
+    "description": "Integrates the daily_happiness_tracker into the active event loop pathway by initializing it and scheduling its periodic tasks for daily happiness prompts, response checks, and weekly summaries to benefit Jesse.",
+    "status": "active",
+    "dependencies": [
+      "daily_happiness_tracker",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "weekly_dimension_synthesis",
+    "module": "capabilities/weekly_dimension_synthesis.py",
+    "description": "Weekly synthesis capability that aggregates data from daily Health, Wealth, and Happiness trackers, computes metrics like averages, trends, variances, and correlations, generates a formatted Discord DM report with ASCII charts, insights, recommendations, and anomaly flags.",
+    "status": "active",
+    "dependencies": [
+      "daily_health_tracker",
+      "daily_wealth_tracker",
+      "daily_happiness_tracker",
+      "discord_notifier",
+      "model_interface"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_weekly_dimension_synthesis",
+    "module": "capabilities/wire_weekly_dimension_synthesis.py",
+    "description": "Integration capability that initializes, registers, and wires the weekly_dimension_synthesis into the event loop for periodic execution.",
+    "status": "active",
+    "dependencies": [
+      "weekly_dimension_synthesis",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_agency_tracker",
+    "module": "capabilities/daily_agency_tracker.py",
+    "description": "Implements daily Discord DM prompts for Jesse's agency metrics including autonomy score (1-10), key decisions, and goal progress, with LLM-based parsing of responses from recent messages, persistent JSONL storage, trend-based motivational insights/alerts, and integration with weekly synthesis.",
+    "status": "active",
+    "dependencies": [
+      "conversational_memory",
+      "discord_notifier",
+      "model_interface",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_agency_tracker",
+    "module": "capabilities/wire_daily_agency_tracker.py",
+    "description": "Wires the daily_agency_tracker capability into the event loop by providing initialization and registration functions that integrate it for periodic prompting and response checking.",
+    "status": "active",
+    "dependencies": [
+      "daily_agency_tracker",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_capability_tracker",
+    "module": "capabilities/daily_capability_tracker.py",
+    "description": "Implements daily Discord DM prompts for Jesse's capability metrics including hours studied, new skills, projects advanced, and self-assessed score, with NL parsing, persistent storage, and weekly trend previews.",
+    "status": "active",
+    "dependencies": [
+      "event_loop",
+      "discord_notifier",
+      "capability_registry",
+      "conversational_memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_capability_tracker",
+    "module": "capabilities/integrate_daily_capability_tracker.py",
+    "description": "Wires daily_capability_tracker into the event loop.",
+    "status": "active",
+    "dependencies": [
+      "daily_capability_tracker",
+      "event_loop"
+    ],
+    "metadata": {}
   }
 ]

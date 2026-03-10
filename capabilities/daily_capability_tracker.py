@@ -185,12 +185,7 @@ def register_capability(
     return cap
 
 def integrate_with_event_loop(loop: EventLoop) -> None:
-    loop.add_periodic_task(
-        "daily_capability_prompt", daily_prompt_coro, interval=86400.0
-    )
-    loop.add_periodic_task(
-        "capability_check_responses", check_responses_coro, interval=1800.0
-    )
-    loop.add_periodic_task(
-        "capability_weekly_summary", weekly_summary_coro, interval=604800.0
-    )
+    from capabilities.event_loop import PeriodicTask
+    loop.register_task(PeriodicTask("daily_capability_prompt", daily_prompt_coro, 86400.0))
+    loop.register_task(PeriodicTask("capability_check_responses", check_responses_coro, 1800.0))
+    loop.register_task(PeriodicTask("capability_weekly_summary", weekly_summary_coro, 604800.0))

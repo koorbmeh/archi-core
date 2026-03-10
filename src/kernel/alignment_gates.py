@@ -20,9 +20,11 @@ PROTECTED_FILES = frozenset({
     ".env",
 })
 
-DEFAULT_SESSION_CEILING = 0.50
 DEFAULT_DAILY_CEILING = 5.00
 DEFAULT_MONTHLY_CEILING = 100.00
+# Daily warning threshold — log a warning when spend exceeds this fraction
+# of the daily ceiling (e.g. 0.8 = warn at 80%).
+DAILY_WARN_FRACTION = 0.8
 COST_LOG_PATH = Path("data/cost_log.jsonl")
 
 
@@ -108,28 +110,45 @@ def check_protected_file(ctx: ActionContext) -> GateResult:
 
 def check_budget(ctx: ActionContext, session_cost: float = 0.0,
                  cost_log_path: Optional[Path] = None) -> GateResult:
-    """Enforce session, daily, and monthly budget ceilings."""
+    """Enforce daily and monthly budget ceilings.
+
+    Session cost is tracked for logging/visibility but never blocks execution.
+    The real guardrails are the daily and monthly ceilings, which are the only
+    hard blocks.  A warning is logged when daily spend approaches the limit.
+    """
     if ctx.action_type != "model_call":
         return GateResult(True, "budget")
-    session_ceiling = _get_ceiling("ARCHI_SESSION_BUDGET", DEFAULT_SESSION_CEILING)
-    if session_cost + ctx.estimated_cost > session_ceiling:
-        return GateResult(False, "budget",
-                          f"Session ceiling ${session_ceiling:.2f} would be exceeded "
-                          f"(current ${session_cost:.4f} + ${ctx.estimated_cost:.4f}).")
+
     log_path = cost_log_path or COST_LOG_PATH
     entries = _read_cost_log(log_path)
+
+    # --- Daily ceiling (hard block) ---
     daily_ceiling = _get_ceiling("ARCHI_DAILY_BUDGET", DEFAULT_DAILY_CEILING)
     daily = _daily_spend(entries)
     if daily + ctx.estimated_cost > daily_ceiling:
         return GateResult(False, "budget",
                           f"Daily ceiling ${daily_ceiling:.2f} would be exceeded "
                           f"(today ${daily:.4f} + ${ctx.estimated_cost:.4f}).")
+    # Warn when approaching the daily limit
+    warn_threshold = daily_ceiling * DAILY_WARN_FRACTION
+    if daily > warn_threshold:
+        logger.warning(
+            "Daily spend $%.4f approaching ceiling $%.2f (%.0f%%)",
+            daily, daily_ceiling, (daily / daily_ceiling) * 100,
+        )
+
+    # --- Monthly ceiling (hard block) ---
     monthly_ceiling = _get_ceiling("ARCHI_MONTHLY_BUDGET", DEFAULT_MONTHLY_CEILING)
     monthly = _monthly_spend(entries)
     if monthly + ctx.estimated_cost > monthly_ceiling:
         return GateResult(False, "budget",
                           f"Monthly ceiling ${monthly_ceiling:.2f} would be exceeded "
                           f"(month ${monthly:.4f} + ${ctx.estimated_cost:.4f}).")
+
+    # Session cost is logged but never blocks
+    if session_cost > 0:
+        logger.debug("Session cost so far: $%.4f", session_cost)
+
     return GateResult(True, "budget")
 
 

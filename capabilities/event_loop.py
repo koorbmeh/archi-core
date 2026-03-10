@@ -47,6 +47,9 @@ class EventLoop:
         self._tasks.append(task)
         logger.info("Registered periodic task: %s (interval=%.1fs)", task.name, task.interval)
 
+    # Alias — auto-generated capabilities often use this name
+    add_periodic_task = register_task
+
     async def _run_periodic(self, task: PeriodicTask) -> None:
         """Drive a single periodic task at its configured interval."""
         while self._running:

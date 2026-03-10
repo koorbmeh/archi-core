@@ -25,7 +25,10 @@ COST_PER_MILLION = {
     "grok-4-1-fast-reasoning":   {"input": 2.00, "output": 10.00},
 }
 DEFAULT_COST = {"input": 5.00, "output": 15.00}  # safe fallback
-DEFAULT_SESSION_BUDGET = 0.50  # USD — from BOOTSTRAP_STATE
+# Session budget is informational only — daily/monthly ceilings in
+# alignment_gates.py are the real hard blocks.  This value controls
+# the warning threshold logged after each call.
+DEFAULT_SESSION_BUDGET = 5.00  # USD — matches DEFAULT_DAILY_CEILING
 
 @dataclass
 class ModelResponse:
@@ -161,12 +164,6 @@ def call_model(
     cfg_provider, cfg_model = _get_config()
     provider = (provider or cfg_provider).lower()
     model = model or cfg_model
-    budget = _get_budget()
-
-    if _session_cost >= budget:
-        raise BudgetExceededError(
-            f"Session budget ${budget:.2f} reached (spent ${_session_cost:.4f})."
-        )
 
     try:
         if provider == "anthropic":
@@ -195,11 +192,5 @@ def call_model(
         provider, model, result.tokens_in, result.tokens_out,
         result.cost_estimate, _session_cost,
     )
-
-    if _session_cost >= budget:
-        logger.warning(
-            "Session budget $%.2f reached after this call ($%.4f spent).",
-            budget, _session_cost,
-        )
 
     return result

@@ -22,7 +22,7 @@ from src.kernel.self_modifier import apply_change
 from capabilities.conversational_memory import get_context, get_recent_messages
 from capabilities.timestamped_chat_history_recall import recall_messages_in_range
 from capabilities.self_evaluator import SelfEvaluator
-from capabilities.generation_loop import run_cycle, CycleResult
+from src.kernel.generation_loop import run_cycle, CycleResult
 from capabilities.discord_notifier import notify
 
 logger = logging.getLogger(__name__)

@@ -35,6 +35,26 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OP_LOG = Path("data/operation_log.jsonl")
 
+# ---------------------------------------------------------------------------
+# Protected files — Archi must NEVER fully rewrite these.
+# When a wiring gap targets one of these, the planner should add a small
+# surgical import/call — not replace the entire file.  As a hard guard,
+# run_cycle() refuses to apply changes to any path in this set.
+# ---------------------------------------------------------------------------
+PROTECTED_FILES: set[str] = {
+    "run.py",
+    "capabilities/discord_listener.py",
+    "capabilities/discord_gateway.py",
+    "capabilities/discord_notifier.py",
+    "capabilities/event_loop.py",
+    "src/kernel/generation_loop.py",
+    "src/kernel/gap_detector.py",
+    "src/kernel/self_modifier.py",
+    "src/kernel/capability_registry.py",
+    "src/kernel/model_interface.py",
+    "src/kernel/alignment_gates.py",
+}
+
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -51,7 +71,13 @@ PLAN_SYSTEM = (
     "PATH RULE: All new capability files MUST be created in `capabilities/` "
     "(e.g. `capabilities/my_capability.py`). NEVER create files under `src/` "
     "except for kernel modules under `src/kernel/`. The `src/capabilities/` "
-    "directory does not exist and must not be used."
+    "directory does not exist and must not be used.\n\n"
+    "PROTECTED FILE RULE: The following files are PROTECTED and must NEVER be "
+    "the target of a plan's file_path: run.py, capabilities/discord_listener.py, "
+    "capabilities/discord_gateway.py, capabilities/discord_notifier.py, "
+    "capabilities/event_loop.py, and ALL files under src/kernel/. If a gap "
+    "requires wiring into one of these files, the approach should describe "
+    "what import/call to add, but the file_path MUST be a NEW file in capabilities/."
 )
 
 GENERATE_SYSTEM = (
@@ -78,32 +104,35 @@ class CycleResult:
     error: Optional[str] = None
 
 
-def _notify_cycle_result(result: "CycleResult") -> None:
-    """Send a Discord notification summarizing a cycle outcome.
+def format_cycle_notification(result: "CycleResult") -> Optional[str]:
+    """Build the notification string for a cycle outcome.
 
-    Only notifies on meaningful events — stays silent on empty cycles.
-    Uses natural language, not raw structured data.
+    Returns None if the cycle was uneventful (no gaps, nothing built).
+    The caller is responsible for actually sending the message.
     """
-    try:
-        if result.capability_registered and result.gap:
-            desc = ""
-            if result.plan:
-                desc = result.plan.get("description", "")
-            if desc:
-                msg = f"Built and integrated **{result.gap.name}** — {desc}"
-            else:
-                msg = f"Built and integrated **{result.gap.name}**."
-        elif result.error and result.gap:
-            msg = (
-                f"Tried to build **{result.gap.name}** but hit an issue "
-                f"at the {result.phase_reached} phase: {result.error[:150]}"
-            )
-        else:
-            # No gaps or nothing interesting — stay silent
-            return
-        _discord_notify(msg)
-    except Exception as exc:
-        logger.debug("Discord notification failed (non-fatal): %s", exc)
+    if result.capability_registered and result.gap:
+        desc = ""
+        if result.plan:
+            desc = result.plan.get("description", "")
+        if desc:
+            return f"[build] Built **{result.gap.name}** — {desc}"
+        return f"[build] Built **{result.gap.name}**."
+    if result.error and result.gap:
+        return (
+            f"[build] Tried to build **{result.gap.name}** but hit an issue "
+            f"at the {result.phase_reached} phase: {result.error[:150]}"
+        )
+    return None
+
+
+def _notify_cycle_result(result: "CycleResult") -> None:
+    """Legacy sync wrapper — prefer format_cycle_notification + async send."""
+    msg = format_cycle_notification(result)
+    if msg:
+        try:
+            _discord_notify(msg)
+        except Exception as exc:
+            logger.debug("Discord notification failed (non-fatal): %s", exc)
 
 
 def _log_operation(event: str, success: bool, detail: str = "",
@@ -316,15 +345,42 @@ def run_cycle(
         except OSError:
             pass  # can't read existing file — proceed with apply_change
 
+    # --- Phase 3c: Hard guard — refuse to overwrite protected files ---
+    plan_file = plan["file_path"]
+    if plan_file in PROTECTED_FILES:
+        msg = (
+            f"PROTECTED FILE GUARD: Refusing to overwrite '{plan_file}'. "
+            f"This file is hand-maintained infrastructure. The plan must target "
+            f"a new file in capabilities/ instead."
+        )
+        logger.error(msg)
+        _log_operation(
+            "protected_file_blocked", False,
+            detail=msg, missing_cap=gap.name, log_path=op_log,
+        )
+        return CycleResult(phase_reached="generate", gap=gap, plan=plan, error=msg)
+
     # --- Phase 4: Test + Integrate ---
     change = apply_change(repo_path, plan["file_path"], code)
     if not change.success:
+        # Build a detail string that includes test output when available,
+        # so the gap detector can surface it and the planner can see
+        # exactly why the previous attempt failed.
+        detail = change.message
+        if change.failure_type == "test_failure" and change.test_output:
+            # Truncate to keep JSONL lines manageable but long enough
+            # for the planner to diagnose the failure.
+            truncated = change.test_output[:2000]
+            detail = (
+                f"{change.message}\n\n"
+                f"TEST OUTPUT (last attempt):\n{truncated}"
+            )
         if change.failure_type == "environment":
             env_gap = f"env_{_error_slug(change.error or change.message)}"
-            _log_operation("integrate_failed", False, detail=change.message,
+            _log_operation("integrate_failed", False, detail=detail,
                            missing_cap=env_gap, log_path=op_log)
         else:
-            _log_operation("integrate_failed", False, detail=change.message,
+            _log_operation("integrate_failed", False, detail=detail,
                            missing_cap=gap.name, log_path=op_log)
         return CycleResult(phase_reached="integrate", gap=gap, plan=plan,
                            change=change, error=change.message)
@@ -426,11 +482,13 @@ def _check_reachability(
             f"Capability '{cap.name}' ({cap.module}) was built and tests pass, "
             f"but nothing imports or references it. Jesse cannot benefit from "
             f"it until it is wired into an active pathway.\n\n"
-            f"WIRING RULE: The fix MUST modify an existing entry-point file "
-            f"such as capabilities/discord_listener.py or run.py to import and "
-            f"invoke this capability. Do NOT create a new wire_X.py capability "
-            f"file — that will also be unwired and cause an infinite loop. "
-            f"The plan's file_path must be an EXISTING file, not a new file."
+            f"WIRING RULE: Create a NEW integration file in capabilities/ "
+            f"(e.g. capabilities/integrate_{cap.name}.py) that imports both "
+            f"the new capability and whatever entry point needs it, then "
+            f"provides a thin bridge function. Do NOT create a wire_X.py file. "
+            f"Do NOT modify protected files (run.py, discord_listener.py, "
+            f"discord_gateway.py, event_loop.py, or any src/kernel/ file) — "
+            f"writes to those will be blocked."
         )
         logger.warning("Reachability check: %s is not wired into any pathway.", cap.name)
         _log_operation(

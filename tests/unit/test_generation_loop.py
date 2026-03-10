@@ -393,6 +393,168 @@ class TestOperationLogFeedback:
         assert len(gaps[0].evidence) == 2
 
 
+class TestTestFailureDetailInLog:
+    """When tests fail, the operation log should include the test output."""
+
+    def test_test_output_included_in_detail(self, tmp_path):
+        """When self_modifier returns failure_type=test_failure with test_output,
+        the operation log detail should contain the actual test output so the
+        planner can diagnose the failure on the next attempt."""
+        from unittest.mock import patch as mock_patch
+        import subprocess
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "src" / "tools").mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t.com"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"],
+                       cwd=str(repo), capture_output=True)
+        (repo / "README.md").write_text("init\n")
+        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"],
+                       cwd=str(repo), capture_output=True)
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        def good_plan(prompt, system=None):
+            return _make_response(VALID_PLAN_JSON)
+
+        def good_gen(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        test_fail_result = ChangeResult(
+            success=False, branch_name="archi/mod-test",
+            file_path="src/tools/example.py",
+            message="Rolled back src/tools/example.py — tests failed.",
+            test_output="FAILED tests/test_foo.py::test_bar - AssertionError: expected 42 got 0",
+            failure_type="test_failure",
+        )
+        with mock_patch("src.kernel.generation_loop.apply_change",
+                        return_value=test_fail_result):
+            result = run_cycle(
+                repo_path=str(repo), registry=registry,
+                log_path=op_log,
+                plan_fn=good_plan, generate_fn=good_gen,
+            )
+        assert result.phase_reached == "integrate"
+        assert result.change.failure_type == "test_failure"
+        # Verify the operation log includes the test output
+        log_lines = op_log.read_text().strip().splitlines()
+        fail_entries = [
+            json.loads(l) for l in log_lines
+            if '"integrate_failed"' in l
+        ]
+        assert len(fail_entries) >= 1
+        detail = fail_entries[-1]["detail"]
+        assert "TEST OUTPUT" in detail
+        assert "AssertionError" in detail
+
+    def test_test_output_truncated_at_2000_chars(self, tmp_path):
+        """Very long test output should be truncated to keep JSONL manageable."""
+        from unittest.mock import patch as mock_patch
+        import subprocess
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "src" / "tools").mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t.com"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"],
+                       cwd=str(repo), capture_output=True)
+        (repo / "README.md").write_text("init\n")
+        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"],
+                       cwd=str(repo), capture_output=True)
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        def good_plan(prompt, system=None):
+            return _make_response(VALID_PLAN_JSON)
+
+        def good_gen(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        long_output = "X" * 5000
+        test_fail_result = ChangeResult(
+            success=False, branch_name="archi/mod-test",
+            file_path="src/tools/example.py",
+            message="Rolled back — tests failed.",
+            test_output=long_output,
+            failure_type="test_failure",
+        )
+        with mock_patch("src.kernel.generation_loop.apply_change",
+                        return_value=test_fail_result):
+            run_cycle(
+                repo_path=str(repo), registry=registry,
+                log_path=op_log,
+                plan_fn=good_plan, generate_fn=good_gen,
+            )
+        log_lines = op_log.read_text().strip().splitlines()
+        fail_entries = [
+            json.loads(l) for l in log_lines
+            if '"integrate_failed"' in l
+        ]
+        detail = fail_entries[-1]["detail"]
+        # Should contain test output but be truncated
+        assert "TEST OUTPUT" in detail
+        assert len(detail) < 2200  # message + header + 2000 chars of output
+
+    def test_no_test_output_when_empty(self, tmp_path):
+        """When test_output is empty, detail should just be the message."""
+        from unittest.mock import patch as mock_patch
+        import subprocess
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "src" / "tools").mkdir(parents=True)
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t.com"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"],
+                       cwd=str(repo), capture_output=True)
+        (repo / "README.md").write_text("init\n")
+        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"],
+                       cwd=str(repo), capture_output=True)
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        def good_plan(prompt, system=None):
+            return _make_response(VALID_PLAN_JSON)
+
+        def good_gen(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        test_fail_result = ChangeResult(
+            success=False, branch_name="archi/mod-test",
+            file_path="src/tools/example.py",
+            message="Rolled back — tests failed.",
+            test_output="",
+            failure_type="test_failure",
+        )
+        with mock_patch("src.kernel.generation_loop.apply_change",
+                        return_value=test_fail_result):
+            run_cycle(
+                repo_path=str(repo), registry=registry,
+                log_path=op_log,
+                plan_fn=good_plan, generate_fn=good_gen,
+            )
+        log_lines = op_log.read_text().strip().splitlines()
+        fail_entries = [
+            json.loads(l) for l in log_lines
+            if '"integrate_failed"' in l
+        ]
+        detail = fail_entries[-1]["detail"]
+        assert "TEST OUTPUT" not in detail
+        assert detail == "Rolled back — tests failed."
+
+
 class TestEnvironmentFailureRouting:
     """Environment failures log a different gap name than the original capability."""
 

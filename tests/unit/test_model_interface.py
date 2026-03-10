@@ -188,21 +188,9 @@ class TestCallModelOpenAICompat:
         assert result.error is None
 
 
-# --- Budget enforcement ---
+# --- Session cost accumulation (no longer blocks, just tracks) ---
 
-class TestBudgetEnforcement:
-    @patch("src.kernel.model_interface.anthropic.Anthropic")
-    def test_budget_exceeded_raises(self, mock_cls, mock_anthropic_response):
-        mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_anthropic_response
-        mock_cls.return_value = mock_client
-
-        from src.kernel import model_interface
-        model_interface._session_cost = 0.50  # at the limit
-
-        with pytest.raises(BudgetExceededError):
-            call_model("Hi", provider="anthropic")
-
+class TestSessionCostTracking:
     @patch("src.kernel.model_interface.anthropic.Anthropic")
     def test_cost_accumulates(self, mock_cls, mock_anthropic_response):
         mock_client = MagicMock()
@@ -214,19 +202,19 @@ class TestBudgetEnforcement:
         assert get_session_cost() == pytest.approx(r1.cost_estimate + r2.cost_estimate)
 
     @patch("src.kernel.model_interface.anthropic.Anthropic")
-    def test_custom_budget_from_env(self, mock_cls, mock_anthropic_response):
+    def test_high_session_cost_does_not_block(self, mock_cls, mock_anthropic_response):
+        """Session cost never blocks — daily/monthly ceilings are the real guardrails."""
         mock_client = MagicMock()
         mock_client.messages.create.return_value = mock_anthropic_response
         mock_cls.return_value = mock_client
 
         from src.kernel import model_interface
-        with patch.dict(os.environ, {"ARCHI_SESSION_BUDGET": "0.001"}):
-            # First call should succeed (budget not yet reached)
-            r = call_model("Hi", provider="anthropic", model="claude-sonnet-4-6")
-            # Session cost is now > 0, likely > $0.001
-            if get_session_cost() >= 0.001:
-                with pytest.raises(BudgetExceededError):
-                    call_model("Again", provider="anthropic", model="claude-sonnet-4-6")
+        model_interface._session_cost = 999.0  # absurdly high
+
+        # Should still succeed — no BudgetExceededError
+        result = call_model("Hi", provider="anthropic", model="claude-sonnet-4-6")
+        assert result.error is None
+        assert result.text == "Hello from mock"
 
 
 # --- Unknown provider ---

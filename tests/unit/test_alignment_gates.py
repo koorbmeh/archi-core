@@ -61,21 +61,21 @@ class TestProtectedFileGate:
 # --- Budget gate ---
 
 class TestBudgetGate:
-    def test_passes_within_session_budget(self):
+    def test_passes_within_daily_budget(self, tmp_path):
+        """Session cost alone never blocks — only daily/monthly ceilings matter."""
+        cost_log = tmp_path / "cost.jsonl"
+        cost_log.write_text("")  # empty log = $0 spent today
         ctx = ActionContext(action_type="model_call", estimated_cost=0.10)
-        result = check_budget(ctx, session_cost=0.30)
+        result = check_budget(ctx, session_cost=999.0, cost_log_path=cost_log)
         assert result.passed
 
-    def test_blocks_over_session_ceiling(self):
+    def test_session_cost_does_not_block(self, tmp_path):
+        """Even very high session cost should not block (no session ceiling)."""
+        cost_log = tmp_path / "cost.jsonl"
+        cost_log.write_text("")
         ctx = ActionContext(action_type="model_call", estimated_cost=0.10)
-        result = check_budget(ctx, session_cost=0.45)
-        assert not result.passed
-        assert "session" in result.reason.lower()
-
-    def test_blocks_at_exact_session_ceiling(self):
-        ctx = ActionContext(action_type="model_call", estimated_cost=0.01)
-        result = check_budget(ctx, session_cost=0.50)
-        assert not result.passed
+        result = check_budget(ctx, session_cost=50.0, cost_log_path=cost_log)
+        assert result.passed
 
     def test_ignores_non_model_calls(self):
         ctx = ActionContext(action_type="file_write", estimated_cost=999.0)
@@ -86,12 +86,8 @@ class TestBudgetGate:
         cost_log = tmp_path / "cost.jsonl"
         today = time.strftime("%Y-%m-%dT%H:%M:%S")
         # Write $4.95 of spend today
-        for _ in range(99):
-            entry = {"date": today, "cost": 0.05}
-            cost_log.write_text(
-                cost_log.read_text() + json.dumps(entry) + "\n"
-                if cost_log.exists() else json.dumps(entry) + "\n"
-            )
+        lines = [json.dumps({"date": today, "cost": 0.05}) for _ in range(99)]
+        cost_log.write_text("\n".join(lines) + "\n")
         ctx = ActionContext(action_type="model_call", estimated_cost=0.10)
         result = check_budget(ctx, session_cost=0.0, cost_log_path=cost_log)
         assert not result.passed
@@ -109,12 +105,6 @@ class TestBudgetGate:
         result = check_budget(ctx, session_cost=0.0, cost_log_path=cost_log)
         assert not result.passed
         assert "monthly" in result.reason.lower()
-
-    def test_reads_env_session_budget(self, monkeypatch):
-        monkeypatch.setenv("ARCHI_SESSION_BUDGET", "0.10")
-        ctx = ActionContext(action_type="model_call", estimated_cost=0.05)
-        result = check_budget(ctx, session_cost=0.08)
-        assert not result.passed
 
     def test_reads_env_daily_budget(self, monkeypatch, tmp_path):
         monkeypatch.setenv("ARCHI_DAILY_BUDGET", "0.50")
@@ -248,9 +238,14 @@ class TestCheckGates:
         assert "protected_file" in gate_names
         assert "scope" in gate_names
 
-    def test_budget_failure_in_unified(self):
-        ctx = ActionContext(action_type="model_call", estimated_cost=0.10)
-        failures = check_gates(ctx, session_cost=0.50)
+    def test_daily_budget_failure_in_unified(self, monkeypatch, tmp_path):
+        """Budget gate blocks on daily ceiling, not session cost."""
+        monkeypatch.setenv("ARCHI_DAILY_BUDGET", "0.10")
+        cost_log = tmp_path / "cost.jsonl"
+        today = time.strftime("%Y-%m-%dT%H:%M:%S")
+        cost_log.write_text(json.dumps({"date": today, "cost": 0.09}) + "\n")
+        ctx = ActionContext(action_type="model_call", estimated_cost=0.05)
+        failures = check_gates(ctx, session_cost=0.0, cost_log_path=cost_log)
         assert len(failures) == 1
         assert failures[0].gate == "budget"
 
