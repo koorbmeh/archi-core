@@ -179,7 +179,7 @@ class ArchiDaemon:
         self._running = False
         self._logger = logging.getLogger("archi.daemon")
 
-    def _run_wake_cycle(self) -> None:
+    async def _run_wake_cycle(self) -> None:
         """Run up to max_cycles_per_wake cycles in one wake period.
 
         Also drains any pending Discord messages from the listener queue.
@@ -190,10 +190,7 @@ class ArchiDaemon:
         # Process any pending Discord messages from Jesse
         try:
             from capabilities.discord_listener import process_pending
-            import asyncio
-            count = asyncio.get_event_loop().run_until_complete(
-                process_pending(REPO_ROOT, self.registry)
-            )
+            count = await process_pending(REPO_ROOT, self.registry)
             if count:
                 self._logger.info("Processed %d pending Discord message(s).", count)
         except Exception as exc:
@@ -251,7 +248,7 @@ class ArchiDaemon:
 
         try:
             while self._running:
-                self._run_wake_cycle()
+                await self._run_wake_cycle()
                 if not self._running:
                     break
                 self._logger.info("Sleeping %ds until next wake...", self.interval)
@@ -261,17 +258,18 @@ class ArchiDaemon:
                         break
                     await asyncio.sleep(1)
         finally:
+            # Send offline notification before tearing down connections
             _discord_notify("Archi going offline.")
-            # Stop Discord gateway
-            try:
-                from capabilities.discord_gateway import stop_gateway
-                await stop_gateway()
-            except Exception:
-                pass
             # Close the discord notifier's aiohttp session cleanly
             try:
                 from capabilities.discord_notifier import shutdown as _discord_shutdown
                 await _discord_shutdown()
+            except Exception:
+                pass
+            # Stop Discord gateway after notifier is done
+            try:
+                from capabilities.discord_gateway import stop_gateway
+                await stop_gateway()
             except Exception:
                 pass
             self._logger.info("Archi daemon stopped.")
