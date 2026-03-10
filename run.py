@@ -196,11 +196,18 @@ class ArchiDaemon:
         except Exception as exc:
             self._logger.debug("Discord listener poll: %s", exc)
 
+        loop = asyncio.get_running_loop()
         for cycle_num in range(1, self.max_cycles_per_wake + 1):
             self._logger.info("--- Wake cycle %d of %d ---", cycle_num, self.max_cycles_per_wake)
-            result = run_cycle(
-                REPO_ROOT, self.registry, OP_LOG_PATH,
-                plan_fn=self.plan_fn, generate_fn=self.codegen_fn,
+            # Run the synchronous generation cycle in a thread executor so it
+            # doesn't block the event loop. This prevents discord.py heartbeat
+            # timeouts during long API calls and pytest runs.
+            result = await loop.run_in_executor(
+                None,
+                lambda: run_cycle(
+                    REPO_ROOT, self.registry, OP_LOG_PATH,
+                    plan_fn=self.plan_fn, generate_fn=self.codegen_fn,
+                ),
             )
             print_result(result, cycle_num)
 

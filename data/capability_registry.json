@@ -136,5 +136,36 @@
       "discord_notifier"
     ],
     "metadata": {}
+  },
+  {
+    "name": "image_analysis",
+    "module": "capabilities/image_analysis.py",
+    "description": "Analyzes images from Discord by extracting text via OCR and using vision-capable LLMs to identify capability gaps, summarize conversations, or extract insights from screenshots.",
+    "status": "active",
+    "dependencies": [
+      "model_interface",
+      "gap_detector"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "image_vision",
+    "module": "capabilities/image_vision.py",
+    "description": "Provides vision model integration to analyze and describe images from Discord messages, generating contextual responses for Jesse.",
+    "status": "active",
+    "dependencies": [
+      "image_analysis",
+      "discord_notifier",
+      "model_interface"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "image_ocr",
+    "module": "capabilities/image_ocr.py",
+    "description": "Dedicated capability for performing optical character recognition (OCR) on images from URLs to extract readable text.",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
   }
 ]

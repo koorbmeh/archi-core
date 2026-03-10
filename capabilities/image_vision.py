@@ -30,7 +30,7 @@ from src.kernel.model_interface import call_model, BudgetExceededError
 
 logger = logging.getLogger(__name__)
 
-VISION_MODEL = "claude-3-5-sonnet-20241022"
+VISION_MODEL = "claude-sonnet-4-6"
 DEFAULT_MAX_TOKENS = 1024
 _CAPABILITY_NAME = "image_vision"
 

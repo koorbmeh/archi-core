@@ -61,14 +61,23 @@ SYSTEM_PROMPT = (
 OP_LOG_PATH = Path("data/operation_log.jsonl")
 
 
-def receive_message(content: str, user_id: str) -> None:
+def receive_message(
+    content: str,
+    user_id: str,
+    *,
+    attachment_urls: Optional[list[str]] = None,
+) -> None:
     """Callback for discord_gateway — enqueues incoming DMs for processing.
 
     This function is passed to discord_gateway as the receive_fn so that
     incoming messages land in our queue instead of just being logged.
     """
     logger.info("Discord DM received from %s, enqueuing.", user_id)
-    _message_queue.put({"content": content, "user_id": user_id})
+    _message_queue.put({
+        "content": content,
+        "user_id": user_id,
+        "attachment_urls": attachment_urls or [],
+    })
 
 
 async def process_pending(
@@ -85,7 +94,10 @@ async def process_pending(
             msg = _message_queue.get_nowait()
         except queue.Empty:
             break
-        await _handle_message(msg["content"], repo_path, registry)
+        await _handle_message(
+            msg["content"], repo_path, registry,
+            attachment_urls=msg.get("attachment_urls", []),
+        )
         processed += 1
     return processed
 
@@ -94,9 +106,22 @@ async def _handle_message(
     content: str,
     repo_path: str,
     registry: CapabilityRegistry,
+    *,
+    attachment_urls: Optional[list[str]] = None,
 ) -> None:
     """Classify a message and dispatch the appropriate action."""
-    logger.info("Processing message: %.80s", content)
+    urls = attachment_urls or []
+    display = content or "(no text)"
+    if urls:
+        logger.info("Processing message: %.80s [+%d image(s)]", display, len(urls))
+    else:
+        logger.info("Processing message: %.80s", display)
+
+    # If images are attached, run vision analysis first
+    if urls:
+        await _handle_image_message(content, urls)
+        return
+
     try:
         response = call_model(
             prompt=f"Message from Jesse:\n{content}",
@@ -133,6 +158,31 @@ async def _handle_message(
     else:
         logger.warning("Unknown intent '%s'; treating as conversation.", intent)
         _dispatch_conversation(reply or "I'm here.")
+
+
+async def _handle_image_message(content: str, urls: list[str]) -> None:
+    """Process a message with image attachments using vision analysis."""
+    import asyncio
+    loop = asyncio.get_running_loop()
+    try:
+        from capabilities.image_vision import handle_discord_vision_request
+        # Run the synchronous vision pipeline in an executor
+        await loop.run_in_executor(
+            None,
+            lambda: handle_discord_vision_request(
+                attachment_urls=urls,
+                user_message=content or "",
+            ),
+        )
+    except ImportError:
+        logger.warning("image_vision capability not available; cannot process images.")
+        discord_notify(
+            "I can see you sent an image, but my vision capability isn't wired up yet. "
+            "Working on it!"
+        )
+    except Exception as exc:
+        logger.error("Image processing failed: %s", exc)
+        discord_notify("I tried to analyze your image but something went wrong. I'll log this.")
 
 
 def _dispatch_gap(reply: str, gap_name: str, gap_description: str) -> None:

@@ -294,6 +294,12 @@ def run_cycle(
     _log_operation("capability_integrated", True, detail=gap.name, log_path=op_log)
     logger.info("Cycle complete — integrated %s.", gap.name)
 
+    # --- Phase 5: Verify reachability ---
+    # A capability that exists but isn't called from any active pathway is not
+    # useful to Jesse. Check whether anything imports or references the new
+    # module. If nothing does, log a wiring gap so the next cycle can fix it.
+    _check_reachability(cap, registry, op_log)
+
     success_result = CycleResult(
         phase_reached="integrate",
         gap=gap,
@@ -303,3 +309,58 @@ def run_cycle(
     )
     _notify_cycle_result(success_result)
     return success_result
+
+
+def _check_reachability(
+    cap: Capability,
+    registry: CapabilityRegistry,
+    op_log: Path,
+) -> None:
+    """Check whether a newly registered capability is reachable.
+
+    Scans all other capability files and key entry points (run.py,
+    discord_listener) for imports or references to the new module.
+    If nothing references it, log a wiring gap so Archi builds the
+    connection on the next cycle.
+    """
+    import os
+    cap_module_stem = Path(cap.module).stem  # e.g. "image_vision"
+
+    # Directories to scan for references
+    scan_dirs = [Path("capabilities"), Path("src/kernel")]
+    entry_points = [Path("run.py")]
+
+    files_to_scan: list[Path] = list(entry_points)
+    for d in scan_dirs:
+        if d.is_dir():
+            files_to_scan.extend(d.glob("*.py"))
+
+    # Don't count the capability's own file as a reference
+    own_path = Path(cap.module)
+
+    found_reference = False
+    for fpath in files_to_scan:
+        if not fpath.exists() or fpath == own_path:
+            continue
+        try:
+            content = fpath.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        # Check for import or string reference to the module
+        if cap_module_stem in content:
+            found_reference = True
+            break
+
+    if not found_reference:
+        wiring_gap = f"wire_{cap.name}"
+        detail = (
+            f"Capability '{cap.name}' ({cap.module}) was built and tests pass, "
+            f"but nothing imports or references it. Jesse cannot benefit from "
+            f"it until it is wired into an active pathway like discord_listener "
+            f"or run.py."
+        )
+        logger.warning("Reachability check: %s is not wired into any pathway.", cap.name)
+        _log_operation(
+            "reachability_check_failed", False,
+            detail=detail, missing_cap=wiring_gap, log_path=op_log,
+        )

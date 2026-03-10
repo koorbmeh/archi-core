@@ -82,17 +82,34 @@ class ArchiBotClient(discord.Client):
                 "Ignoring DM from non-target user %s", message.author.id
             )
             return
-        logger.info(
-            "Received DM from %s (id=%s): %s",
-            message.author,
-            message.author.id,
-            message.content[:80],
-        )
+        # Collect image attachment URLs
+        attachment_urls = [
+            a.url for a in message.attachments
+            if a.content_type and a.content_type.startswith("image/")
+        ]
+        if attachment_urls:
+            logger.info(
+                "Received DM from %s (id=%s): %s [+%d image(s)]",
+                message.author, message.author.id,
+                message.content[:80], len(attachment_urls),
+            )
+        else:
+            logger.info(
+                "Received DM from %s (id=%s): %s",
+                message.author, message.author.id,
+                message.content[:80],
+            )
         try:
             if asyncio.iscoroutinefunction(self._receive_fn):
-                await self._receive_fn(message.content, str(message.author.id))
+                await self._receive_fn(
+                    message.content, str(message.author.id),
+                    attachment_urls=attachment_urls,
+                )
             else:
-                self._receive_fn(message.content, str(message.author.id))
+                self._receive_fn(
+                    message.content, str(message.author.id),
+                    attachment_urls=attachment_urls,
+                )
         except Exception:
             logger.exception("Error dispatching message to user_communication")
 

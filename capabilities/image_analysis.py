@@ -166,7 +166,7 @@ def analyse_image_url(
             prompt=prompt,
             system=_VISION_SYSTEM,
             provider="anthropic",
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-6",
         )
         analysis = response.text
     except BudgetExceededError:
