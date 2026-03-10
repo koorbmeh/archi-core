@@ -93,3 +93,104 @@
 {"event": "cycle_no_gaps", "success": true}
 {"event": "cycle_no_gaps", "success": true}
 {"event": "self_evaluation_attempt", "success": false, "missing_capability": "self_evaluator", "detail": "Archi has no mechanism to periodically reflect on whether it is actually serving Jesse well. It reacts to failures and explicit requests but never proactively asks: what do I not know about Jesse that I should? what patterns in our interactions should I be learning from? what am I doing that could be done better? what is Jesse's life like and how could I be more useful in it? Archi needs a structured self-evaluation loop that surfaces improvement opportunities from reflection, not just from failure."}
+{"event": "gap_selected", "success": true, "detail": "self_evaluator"}
+{"event": "plan_created", "success": true, "detail": "src/capabilities/self_evaluator.py"}
+{"event": "code_generated", "success": true, "detail": "6595 chars"}
+{"event": "capability_integrated", "success": true, "detail": "self_evaluator"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"timestamp": 1773110926.368193, "type": "gap_signal", "source": "discord_dm", "detail": "No persistent conversational memory; cannot recall details from previous sessions or messages."}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"timestamp": 1773111022.1748567, "type": "gap_signal", "source": "discord_dm", "detail": "Terminal output fails to display logged gaps, even when acknowledged in responses; Jesse observes 'no gaps' despite gap handling."}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_request", "success": false, "missing_capability": "image_analysis", "detail": "Ability to analyze images, extract text (like from screenshots of conversations), and identify/log capability gaps from visual content"}
+{"event": "gap_selected", "success": true, "detail": "image_analysis"}
+{"event": "plan_created", "success": true, "detail": "capabilities/image_analysis.py"}
+{"event": "code_generated", "success": true, "detail": "8550 chars"}
+{"event": "capability_integrated", "success": true, "detail": "image_analysis"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "image_vision", "detail": "Capability to process, analyze, and respond to images attached to or referenced in Jesse's messages"}
+{"event": "gap_selected", "success": true, "detail": "image_vision"}
+{"event": "plan_created", "success": true, "detail": "capabilities/image_vision.py"}
+{"event": "code_generated", "success": true, "detail": "9265 chars"}
+{"event": "capability_integrated", "success": true, "detail": "image_vision"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "image_ocr", "detail": "Ability to perform optical character recognition (OCR) to extract and read text from uploaded images"}
+{"event": "gap_selected", "success": true, "detail": "image_ocr"}
+{"event": "plan_created", "success": true, "detail": "capabilities/image_ocr.py"}
+{"event": "code_generated", "success": true, "detail": "7123 chars"}
+{"event": "capability_integrated", "success": true, "detail": "image_ocr"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "image_ocr", "detail": "Capability to analyze images and extract/read text via optical character recognition (OCR)"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "conversational_memory", "detail": "Archi cannot retain or reference memory of previous conversations across separate sessions or messages, forcing Jesse to repeatedly provide context via images or summaries."}
+{"event": "gap_selected", "success": true, "detail": "conversational_memory"}
+{"event": "plan_created", "success": true, "detail": "capabilities/conversational_memory.py"}
+{"event": "code_generated", "success": true, "detail": "7693 chars"}
+{"event": "capability_integrated", "success": true, "detail": "conversational_memory"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_request", "success": false, "missing_capability": "image_recognition", "detail": "Ability to visually process and interpret images, such as extracting text from screenshots of conversations or timestamps"}
+{"event": "gap_selected", "success": true, "detail": "image_recognition"}
+{"event": "plan_created", "success": true, "detail": "capabilities/image_recognition.py"}
+{"event": "code_generated", "success": true, "detail": "4921 chars"}
+{"event": "capability_integrated", "success": true, "detail": "image_recognition"}
+{"event": "code_generated", "success": true, "detail": "7953 chars"}
+{"event": "code_generated", "success": true, "detail": "5354 chars"}
+{"event": "code_generated", "success": true, "detail": "5276 chars"}

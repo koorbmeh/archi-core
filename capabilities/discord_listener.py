@@ -161,19 +161,34 @@ async def _handle_message(
 
 
 async def _handle_image_message(content: str, urls: list[str]) -> None:
-    """Process a message with image attachments using vision analysis."""
+    """Process a message with image attachments using vision analysis.
+
+    Runs the synchronous vision pipeline in an executor thread, then sends
+    the notification from the async context (where ensure_future works).
+    We pass notify_result=False to image_vision so it doesn't try to call
+    notify() from the thread, and handle notification ourselves.
+    """
     import asyncio
     loop = asyncio.get_running_loop()
     try:
-        from capabilities.image_vision import handle_discord_vision_request
-        # Run the synchronous vision pipeline in an executor
-        await loop.run_in_executor(
+        from capabilities.image_vision import process_discord_image_message, generate_contextual_response
+        # Run the synchronous vision pipeline in an executor — WITHOUT notifying
+        results = await loop.run_in_executor(
             None,
-            lambda: handle_discord_vision_request(
+            lambda: process_discord_image_message(
                 attachment_urls=urls,
-                user_message=content or "",
+                user_context=content or "",
+                notify_result=False,
             ),
         )
+        # Generate contextual response in executor too
+        response_text = await loop.run_in_executor(
+            None,
+            lambda: generate_contextual_response(results, user_message=content or ""),
+        )
+        # Now notify from the async context where it works
+        if response_text:
+            discord_notify(response_text)
     except ImportError:
         logger.warning("image_vision capability not available; cannot process images.")
         discord_notify(

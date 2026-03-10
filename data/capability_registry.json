@@ -167,5 +167,28 @@
     "status": "active",
     "dependencies": [],
     "metadata": {}
+  },
+  {
+    "name": "conversational_memory",
+    "module": "capabilities/conversational_memory.py",
+    "description": "Implements persistent storage and retrieval of per-user conversation history to maintain context across sessions and messages.",
+    "status": "active",
+    "dependencies": [
+      "user_communication",
+      "discord_listener"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "image_recognition",
+    "module": "capabilities/image_recognition.py",
+    "description": "Provides unified image recognition combining OCR text extraction and vision-based semantic interpretation for processing screenshots and conversation images from Discord.",
+    "status": "active",
+    "dependencies": [
+      "image_ocr",
+      "image_vision",
+      "image_analysis"
+    ],
+    "metadata": {}
   }
 ]

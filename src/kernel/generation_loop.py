@@ -79,25 +79,27 @@ class CycleResult:
 
 
 def _notify_cycle_result(result: "CycleResult") -> None:
-    """Send a Discord notification summarizing a cycle outcome."""
+    """Send a Discord notification summarizing a cycle outcome.
+
+    Only notifies on meaningful events — stays silent on empty cycles.
+    Uses natural language, not raw structured data.
+    """
     try:
-        cost = f"${get_session_cost():.4f}"
         if result.capability_registered and result.gap:
-            msg = (
-                f"Integrated: {result.gap.name}\n"
-                f"File: {result.plan.get('file_path', '?') if result.plan else '?'}\n"
-                f"Session cost: {cost}"
-            )
+            desc = ""
+            if result.plan:
+                desc = result.plan.get("description", "")
+            if desc:
+                msg = f"Built and integrated **{result.gap.name}** — {desc}"
+            else:
+                msg = f"Built and integrated **{result.gap.name}**."
         elif result.error and result.gap:
             msg = (
-                f"Failed: {result.gap.name} at {result.phase_reached} phase\n"
-                f"Reason: {result.error[:200]}\n"
-                f"Session cost: {cost}"
+                f"Tried to build **{result.gap.name}** but hit an issue "
+                f"at the {result.phase_reached} phase: {result.error[:150]}"
             )
-        elif result.phase_reached == "observe":
-            # No gaps — not worth a notification every time
-            return
         else:
+            # No gaps or nothing interesting — stay silent
             return
         _discord_notify(msg)
     except Exception as exc:
@@ -159,6 +161,23 @@ def run_cycle(
 
     gap = gaps[0]  # highest priority
     logger.info("Top gap: %s (priority %.2f, source=%s)", gap.name, gap.priority, gap.source)
+
+    # Hard guard: refuse to plan any wire_wire_* gap — this is a sign of the
+    # infinite wiring loop. Log an error and skip it entirely.
+    if gap.name.startswith("wire_wire_"):
+        logger.error(
+            "LOOP GUARD: Refusing to plan '%s' — this is a recursive wiring gap. "
+            "The original capability needs manual wiring into an existing file.",
+            gap.name,
+        )
+        _log_operation(
+            "wire_loop_blocked", False,
+            detail=f"Blocked recursive wiring gap: {gap.name}",
+            log_path=op_log,
+        )
+        return CycleResult(phase_reached="plan", gap=gap,
+                           error=f"Blocked recursive wiring gap: {gap.name}")
+
     _log_operation("gap_selected", True, detail=gap.name, log_path=op_log)
 
     # --- Phase 2: Plan (pre-flight gate check) ---
@@ -320,10 +339,21 @@ def _check_reachability(
 
     Scans all other capability files and key entry points (run.py,
     discord_listener) for imports or references to the new module.
-    If nothing references it, log a wiring gap so Archi builds the
-    connection on the next cycle.
+    If nothing references it, log a wiring gap so Archi modifies an
+    existing entry-point file to import and use the new capability.
+
+    IMPORTANT: The wiring gap instructs the planner to MODIFY an existing
+    file (discord_listener.py, run.py, etc.) — NOT create a new wire_X.py
+    file. Creating a new wrapper file would itself be unreachable, causing
+    an infinite wire_wire_wire_... loop.
     """
-    import os
+    # Hard guard: never check reachability for wire_ capabilities.
+    # If a capability name starts with "wire_", it IS the wiring fix —
+    # checking its reachability would create wire_wire_ and loop forever.
+    if cap.name.startswith("wire_"):
+        logger.debug("Skipping reachability check for wiring capability: %s", cap.name)
+        return
+
     cap_module_stem = Path(cap.module).stem  # e.g. "image_vision"
 
     # Directories to scan for references
@@ -356,8 +386,12 @@ def _check_reachability(
         detail = (
             f"Capability '{cap.name}' ({cap.module}) was built and tests pass, "
             f"but nothing imports or references it. Jesse cannot benefit from "
-            f"it until it is wired into an active pathway like discord_listener "
-            f"or run.py."
+            f"it until it is wired into an active pathway.\n\n"
+            f"WIRING RULE: The fix MUST modify an existing entry-point file "
+            f"such as capabilities/discord_listener.py or run.py to import and "
+            f"invoke this capability. Do NOT create a new wire_X.py capability "
+            f"file — that will also be unwired and cause an infinite loop. "
+            f"The plan's file_path must be an EXISTING file, not a new file."
         )
         logger.warning("Reachability check: %s is not wired into any pathway.", cap.name)
         _log_operation(
