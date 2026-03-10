@@ -1,12 +1,16 @@
 """
 run.py — Main entry point for Archi's persistent daemon.
 
-Architecture: Two parallel asyncio tasks sharing a lock for safe state access.
+Architecture: Two parallel asyncio tasks with fine-grained locking.
   1. Message task:  Polls Discord queue every ~2s, processes immediately.
   2. Generation task: Runs self-development cycles on an interval.
 
-Both tasks share an asyncio.Lock that protects shared state: the operation log,
-capability registry, and git working tree.
+Lock granularity:
+  - _build_lock: Protects shared mutable state (operation log, capability
+    registry, git working tree). Held by generation cycles and state-mutating
+    message handlers (GAP, PREREQ_CONFIRM, TRIGGER).
+  - Conversation responses run WITHOUT any lock — they only read the profile
+    and call the model, so Jesse gets replies in <5s even mid-build.
 
 Usage:
     python run.py --daemon --interval 300
@@ -79,12 +83,13 @@ class ArchiDaemon:
     Manages two independent asyncio tasks:
 
     - **message_task**: Polls the Discord listener queue every ~2s and processes
-      messages immediately. Conversations feel near-instant to Jesse.
+      messages immediately. Conversations run lock-free for instant responses.
     - **generation_task**: Runs generation loop cycles on an interval
       (default 5 min). Builds new capabilities autonomously.
 
-    Both acquire `self._lock` before touching shared state (registry, op log,
-    git working tree) to prevent race conditions.
+    Only state-mutating operations (generation cycles, gap logging, prereq
+    confirmation) acquire ``_build_lock``. Conversation responses bypass it
+    entirely so Jesse gets replies in <5s even during a build.
     """
 
     def __init__(
@@ -98,7 +103,7 @@ class ArchiDaemon:
         self.interval = interval
         self.log_path = log_path
         self.dry_run = dry_run
-        self._lock = asyncio.Lock()
+        self._build_lock = asyncio.Lock()
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="archi")
         self._running = False
         self._tasks: list[asyncio.Task] = []
@@ -116,16 +121,22 @@ class ArchiDaemon:
             await asyncio.sleep(2.0)
 
     async def _process_pending_messages(self) -> None:
-        """Process all pending Discord messages under the shared lock."""
+        """Process all pending Discord messages.
+
+        Conversations run lock-free.  State-mutating intents (GAP,
+        PREREQ_CONFIRM, TRIGGER) acquire ``_build_lock`` inside
+        ``process_pending`` via the *build_lock* parameter.
+        """
         try:
             from capabilities.discord_listener import process_pending
         except ImportError:
             return
 
-        async with self._lock:
-            count = await process_pending(REPO_PATH, self.registry)
-            if count:
-                logger.info("Processed %d message(s) from Discord queue.", count)
+        count = await process_pending(
+            REPO_PATH, self.registry, build_lock=self._build_lock,
+        )
+        if count:
+            logger.info("Processed %d message(s) from Discord queue.", count)
 
     # --- Generation cycle task ---
 
@@ -145,7 +156,7 @@ class ArchiDaemon:
     async def _run_one_cycle(self) -> None:
         """Execute one generation cycle in a thread executor (CPU-bound model calls)."""
         if self.dry_run:
-            async with self._lock:
+            async with self._build_lock:
                 from src.kernel.gap_detector import detect_gaps
                 gaps = detect_gaps(self.registry, self.log_path)
                 if gaps:
@@ -160,7 +171,7 @@ class ArchiDaemon:
         # Run the blocking generation cycle in a thread, under the lock.
         # Notification also happens INSIDE the lock so it cannot interleave
         # with a conversational response from the message task.
-        async with self._lock:
+        async with self._build_lock:
             result: CycleResult = await loop.run_in_executor(
                 self._executor,
                 lambda: run_cycle(REPO_PATH, self.registry, self.log_path),
@@ -200,7 +211,7 @@ class ArchiDaemon:
             # No gaps found — Archi is idle. Run self-evaluation to generate
             # a new gap oriented toward Jesse's six dimensions.
             logger.info("No gaps — running self-evaluator to find improvements")
-            async with self._lock:
+            async with self._build_lock:
                 try:
                     from capabilities.self_evaluator import SelfEvaluator
                     evaluator = SelfEvaluator(

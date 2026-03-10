@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-09 (session 8)
+Last updated: 2026-03-10 (session 8 retrospective by Cowork)
 
 ---
 
@@ -85,33 +85,45 @@ Starting model (until Archi develops its own selection strategy):
 
 ---
 
-## Next Priority
+## Current Status
 
-**Ready for first live run.**
+**Archi is live and self-developing.** The generation loop has been running
+autonomously since session 7. Archi operates as a Discord-connected daemon,
+listening to Jesse, responding conversationally, and building capabilities
+from detected gaps.
 
-All six kernel components are built and wired. run.py is the entry point.
-Alignment gates are wired as pre-flight checks in the generation loop.
-Cost logging is wired into model_interface after each call. Two-model
-routing reads from ARCHI_PLAN_PROVIDER/MODEL and ARCHI_CODEGEN_PROVIDER/MODEL.
+**Stats as of 2026-03-10:**
+- 147 commits since session 7 (116 Archi-generated, 31 manual fixes)
+- 49 capability files in capabilities/
+- 161/161 tests passing
+- Discord integration operational (gateway, listener, notifier)
+- All six dimension trackers built (health, wealth, happiness, agency, capability, synthesis)
 
 To start Archi:
+    python run.py --daemon     # Discord-connected continuous operation
     python run.py --dry-run    # see what gaps exist (no API calls)
     python run.py              # run one generation cycle
     python run.py --loop 5     # run up to 5 cycles
 
 ---
 
+## Next Priority
+
+**Generation loop quality.** Archi is self-developing but producing some
+low-quality or nonsensical capabilities. Three patterns need attention:
+
+1. **Wire loops** — Archi generates "wire_X" capabilities that just wire a
+   previous capability, then detects that wiring as a new gap, ad infinitum.
+2. **Hallucinated gap names** — Discord conversation fragments leak into the
+   gap detector as capability names (e.g., "guess_couldn_read_file").
+3. **Rebuild loops** — Archi sometimes rebuilds capabilities it already has
+   (image_analysis.py was modified 3 times in quick succession).
+
+---
+
 ## Needs Jesse
 
-**First live run:** `python run.py` with API keys in .env. The first gap
-Archi will detect is `user_communication` — seeded via operation_log.jsonl.
-
-**Comms fallback:** If Archi cannot reach its communication target (Discord
-down, bad token, etc.), it should fall back to appending messages to
-ARCHI_COMMS_FALLBACK_PATH (default: `data/archi_messages.txt`). This is
-Jesse's last resort for seeing what Archi is trying to say.
-
-*(All previous items resolved as of session 2.)*
+*(No blockers currently. Archi is running autonomously.)*
 
 ### Resolved
 - **API keys:** Added to .env (session 2). Anthropic, xAI, OpenRouter.
@@ -138,11 +150,15 @@ Jesse's last resort for seeing what Archi is trying to say.
 
 ## Known Issues / Bug Watch
 
-- Environment gaps are now classified and surfaced (session 7), but Archi
-  cannot yet *execute* environment repairs. The mechanism detects and logs
-  env_ gaps at priority 1.0 — Archi still needs to build a capability that
-  can act on them (e.g., running git config, fixing permissions). This is
-  the next gap after user_communication is working.
+- **Wire loops:** Archi generates wire_X → wire_wire_X → wire_wire_wire_X
+  capabilities. Partially fixed (745cda0) but pattern may recur.
+- **Hallucinated gaps from Discord:** Conversational fragments become gap names.
+  Needs better filtering in gap_detector or discord_listener.
+- **Capability rebuild loops:** Same capability modified multiple times in
+  succession without meaningful change.
+- **Manual fix ratio:** ~1 manual fix per 5 Archi commits. Generation loop
+  produces working code but often needs wiring fixes.
+- Environment gap execution still not implemented (from session 7).
 
 ### Resolved
 
@@ -172,3 +188,4 @@ Jesse's last resort for seeing what Archi is trying to say.
 - Session 5: 2026-03-09 — Built alignment_gates.py. 103/103 tests passing. KERNEL COMPLETE.
 - Session 6: 2026-03-09 — Built run.py entry point. Wired gates + cost logging into loop. 106/106 tests passing.
 - Session 7: 2026-03-09 — Failure classification mechanism. Environment vs test vs unknown failures across self_modifier, generation_loop, gap_detector. Windows path fix in alignment_gates.py (Jesse-approved exception). 116/116 tests passing.
+- Session 8: 2026-03-10 — Retrospective. 147 commits since session 7. Archi live and self-developing. Discord integration, 49 capabilities, all 6 dimension trackers. 161/161 tests passing.

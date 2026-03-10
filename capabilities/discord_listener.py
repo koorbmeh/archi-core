@@ -426,8 +426,24 @@ async def _handle_conversation(user_id: str, content: str) -> None:
 # Message processing (called by ArchiDaemon's message task)
 # ---------------------------------------------------------------------------
 
-async def process_one(repo_path: str, registry: CapabilityRegistry) -> bool:
-    """Dequeue and process a single message. Returns True if a message was handled."""
+# Intents that mutate shared state (operation log, registry) and need the
+# build lock.  Everything else (CONVERSATION, IMAGE, RECALL) runs lock-free.
+_STATE_MUTATING_INTENTS = {"GAP", "PREREQ_CONFIRM", "TRIGGER"}
+
+
+async def process_one(
+    repo_path: str,
+    registry: CapabilityRegistry,
+    *,
+    build_lock: Optional["asyncio.Lock"] = None,
+) -> bool:
+    """Dequeue and process a single message. Returns True if a message was handled.
+
+    *build_lock*, when provided, is acquired only for intents that mutate
+    shared state (GAP, PREREQ_CONFIRM, TRIGGER).  Conversations and other
+    read-only intents run without any lock so Jesse gets fast replies even
+    during a build cycle.
+    """
     if not _message_queue:
         return False
 
@@ -445,11 +461,23 @@ async def process_one(repo_path: str, registry: CapabilityRegistry) -> bool:
         elif intent == "RECALL":
             await _handle_recall(user_id, content)
         elif intent == "GAP":
-            await _handle_gap(user_id, content)
+            if build_lock:
+                async with build_lock:
+                    await _handle_gap(user_id, content)
+            else:
+                await _handle_gap(user_id, content)
         elif intent == "PREREQ_CONFIRM":
-            await _handle_prereq_confirm(user_id, content)
+            if build_lock:
+                async with build_lock:
+                    await _handle_prereq_confirm(user_id, content)
+            else:
+                await _handle_prereq_confirm(user_id, content)
         elif intent == "TRIGGER":
-            await _handle_trigger(user_id, content)
+            if build_lock:
+                async with build_lock:
+                    await _handle_trigger(user_id, content)
+            else:
+                await _handle_trigger(user_id, content)
         else:
             await _handle_conversation(user_id, content)
     except Exception as exc:
@@ -458,11 +486,22 @@ async def process_one(repo_path: str, registry: CapabilityRegistry) -> bool:
     return True
 
 
-async def process_pending(repo_path: str, registry: CapabilityRegistry) -> int:
-    """Drain the message queue and process each message."""
+async def process_pending(
+    repo_path: str,
+    registry: CapabilityRegistry,
+    *,
+    build_lock: Optional["asyncio.Lock"] = None,
+) -> int:
+    """Drain the message queue and process each message.
+
+    *build_lock* is forwarded to ``process_one`` — only state-mutating
+    intents acquire it.  Conversations run concurrently with build cycles.
+    """
     count = 0
     while _message_queue:
-        processed = await process_one(repo_path, registry)
+        processed = await process_one(
+            repo_path, registry, build_lock=build_lock,
+        )
         if processed:
             count += 1
     return count
