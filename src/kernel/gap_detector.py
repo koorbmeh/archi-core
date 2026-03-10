@@ -130,6 +130,10 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     for gap in gaps.values():
         if gap.source != "environment":
             gap.priority = min(1.0, 0.7 + 0.05 * len(gap.evidence))
+        # Gaps signaled directly by Jesse via Discord get highest non-env priority
+        is_jesse = any("gap_signal_from_discord" in ev for ev in gap.evidence)
+        if is_jesse:
+            gap.priority = max(gap.priority, 0.95)
     return list(gaps.values())
 
 
@@ -154,10 +158,20 @@ def detect_gaps(
     # Don't re-surface gaps for capabilities already registered and active.
     # Structural and registry gaps handle their own filtering; this catches
     # operational gaps that reference capabilities Archi has since built.
+    #
+    # EXCEPTION: gaps sourced from Jesse (via Discord) are never suppressed.
+    # When Jesse says something is a gap, it IS a gap — even if the capability
+    # exists in the registry. It might be unwired, broken, or insufficient.
     active = {c.name for c in registry.list_all() if c.status == "active"}
     for name in list(all_gaps):
-        if name in active and all_gaps[name].source == "operational":
-            del all_gaps[name]
+        gap = all_gaps[name]
+        if name in active and gap.source == "operational":
+            # Check if any evidence comes from Jesse (discord gap signals)
+            is_jesse_signal = any(
+                "gap_signal_from_discord" in ev for ev in gap.evidence
+            )
+            if not is_jesse_signal:
+                del all_gaps[name]
     return sorted(all_gaps.values(), key=lambda g: g.priority, reverse=True)
 
 
