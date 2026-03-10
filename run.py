@@ -49,6 +49,42 @@ DEFAULT_REGISTRY = Path("data/capability_registry.json")
 
 
 # ---------------------------------------------------------------------------
+# Git lock cleanup — stale lock files block all git operations
+# ---------------------------------------------------------------------------
+
+_GIT_LOCK_FILES = ["HEAD.lock", "index.lock"]
+_STALE_AGE_SECONDS = 30  # locks older than this are considered stale
+
+
+def _cleanup_stale_git_locks() -> None:
+    """Remove stale git lock files that would block self_modifier.
+
+    A lock is considered stale if it is either 0 bytes (crashed process
+    never wrote to it) or older than 30 seconds (process died mid-write).
+    This runs automatically before every generation cycle.
+    """
+    import time
+
+    git_dir = Path(REPO_PATH) / ".git"
+    for lock_name in _GIT_LOCK_FILES:
+        lock_path = git_dir / lock_name
+        if not lock_path.exists():
+            continue
+        try:
+            stat = lock_path.stat()
+            is_empty = stat.st_size == 0
+            is_old = (time.time() - stat.st_mtime) > _STALE_AGE_SECONDS
+            if is_empty or is_old:
+                lock_path.unlink()
+                logger.info(
+                    "Removed stale git lock: %s (size=%d, age=%.0fs)",
+                    lock_name, stat.st_size, time.time() - stat.st_mtime,
+                )
+        except OSError as exc:
+            logger.warning("Could not remove %s: %s", lock_name, exc)
+
+
+# ---------------------------------------------------------------------------
 # Kernel capability seeding
 # ---------------------------------------------------------------------------
 
@@ -155,6 +191,8 @@ class ArchiDaemon:
 
     async def _run_one_cycle(self) -> None:
         """Execute one generation cycle in a thread executor (CPU-bound model calls)."""
+        _cleanup_stale_git_locks()
+
         if self.dry_run:
             async with self._build_lock:
                 from src.kernel.gap_detector import detect_gaps
@@ -337,6 +375,7 @@ def run_single_cycle(dry_run: bool = False) -> None:
             print("  No gaps detected.")
         return
 
+    _cleanup_stale_git_locks()
     result = run_cycle(REPO_PATH, registry, DEFAULT_OP_LOG)
 
     # Single-cycle mode: sync notification is fine (no concurrency)
