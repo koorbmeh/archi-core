@@ -140,25 +140,32 @@
   {
     "name": "image_analysis",
     "module": "capabilities/image_analysis.py",
-    "description": "Analyzes images from Discord by extracting text via OCR and using vision-capable LLMs to identify capability gaps, summarize conversations, or extract insights from screenshots.",
+    "description": "Provides comprehensive image analysis for Discord attachments, including OCR text extraction, vision-based description, and detection/logging of capability gaps from screenshots of errors, conversations, or logs.",
     "status": "active",
     "dependencies": [
+      "image_ocr",
+      "image_vision",
       "model_interface",
-      "gap_detector"
+      "gap_detector",
+      "discord_notifier",
+      "capability_registry",
+      "conversational_memory"
     ],
     "metadata": {}
   },
   {
     "name": "image_vision",
-    "module": "capabilities/image_vision.py",
-    "description": "Provides vision model integration to analyze and describe images from Discord messages, generating contextual responses for Jesse.",
+    "module": "capabilities.image_vision",
+    "description": "Vision model integration to analyze and describe images from Discord messages using Claude-3.5-sonnet. Combines OCR and vision analysis to generate contextual responses for Jesse.",
     "status": "active",
     "dependencies": [
       "image_analysis",
       "discord_notifier",
       "model_interface"
     ],
-    "metadata": {}
+    "metadata": {
+      "vision_model": "claude-sonnet-4-6"
+    }
   },
   {
     "name": "image_ocr",
@@ -188,6 +195,49 @@
       "image_ocr",
       "image_vision",
       "image_analysis"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "timestamped_chat_history_recall",
+    "module": "capabilities/timestamped_chat_history_recall.py",
+    "description": "Retrieves specific past messages from a user's conversation history by matching exact timestamps.",
+    "status": "active",
+    "dependencies": [
+      "conversational_memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_timestamped_chat_history_recall",
+    "module": "capabilities/discord_listener.py",
+    "description": "Wire timestamped_chat_history_recall into the Discord listener's message processing to enable users to recall specific past messages or ranges by timestamp via simple commands.",
+    "status": "active",
+    "dependencies": [
+      "timestamped_chat_history_recall",
+      "conversational_memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "gap_logging_sync",
+    "module": "capabilities/gap_logging_sync.py",
+    "description": "Synchronizes gap detection logging between backend terminal outputs and frontend Discord notifications to ensure accurate gap reporting to users like Jesse.",
+    "status": "active",
+    "dependencies": [
+      "gap_detector",
+      "discord_listener",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_gap_logging_sync",
+    "module": "capabilities/event_loop.py",
+    "description": "Integrate gap_logging_sync into the event loop to enable periodic synchronization of detected gaps with Discord, making it reachable and active.",
+    "status": "active",
+    "dependencies": [
+      "gap_logging_sync"
     ],
     "metadata": {}
   }

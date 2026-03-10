@@ -220,3 +220,33 @@
 {"event": "jesse_gap_resolved", "success": true, "detail": "image_ocr"}
 {"event": "jesse_gap_resolved", "success": true, "detail": "image_recognition"}
 {"event": "jesse_gap_resolved", "success": true, "detail": "image_vision"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "timestamped_chat_history_recall", "detail": "Access and retrieve specific past messages from conversation history using exact timestamps"}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "conversational_memory", "detail": "Persistent memory of prior conversations, including recalling specific details like timestamps, questions, or context from previous messages."}
+{"event": "gap_selected", "success": true, "detail": "timestamped_chat_history_recall"}
+{"event": "plan_created", "success": true, "detail": "capabilities/timestamped_chat_history_recall.py"}
+{"event": "code_generated", "success": true, "detail": "5022 chars"}
+{"event": "capability_integrated", "success": true, "detail": "timestamped_chat_history_recall"}
+{"event": "jesse_gap_resolved", "success": true, "detail": "timestamped_chat_history_recall"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'timestamped_chat_history_recall' (capabilities/timestamped_chat_history_recall.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: The fix MUST modify an existing entry-point file such as capabilities/discord_listener.py or run.py to import and invoke this capability. Do NOT create a new wire_X.py capability file \u2014 that will also be unwired and cause an infinite loop. The plan's file_path must be an EXISTING file, not a new file.", "missing_capability": "wire_timestamped_chat_history_recall"}
+{"event": "gap_selected", "success": true, "detail": "wire_timestamped_chat_history_recall"}
+{"event": "plan_created", "success": true, "detail": "capabilities/discord_listener.py"}
+{"event": "code_generated", "success": true, "detail": "6094 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_timestamped_chat_history_recall"}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "conversational_memory", "detail": "Ability to recall and reference content from previous messages in the conversation history"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "gap_logging_sync", "detail": "Discrepancy between frontend responses to Jesse (no gaps indicated) and backend terminal logging (failing to capture or report actual gaps accurately)"}
+{"event": "gap_selected", "success": true, "detail": "gap_logging_sync"}
+{"event": "plan_created", "success": true, "detail": "capabilities/gap_logging_sync.py"}
+{"event": "code_generated", "success": true, "detail": "8694 chars"}
+{"event": "capability_integrated", "success": true, "detail": "gap_logging_sync"}
+{"event": "jesse_gap_resolved", "success": true, "detail": "gap_logging_sync"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'gap_logging_sync' (capabilities/gap_logging_sync.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: The fix MUST modify an existing entry-point file such as capabilities/discord_listener.py or run.py to import and invoke this capability. Do NOT create a new wire_X.py capability file \u2014 that will also be unwired and cause an infinite loop. The plan's file_path must be an EXISTING file, not a new file.", "missing_capability": "wire_gap_logging_sync"}
+{"event": "gap_selected", "success": true, "detail": "wire_gap_logging_sync"}
+{"event": "plan_created", "success": true, "detail": "capabilities/event_loop.py"}
+{"event": "code_generated", "success": true, "detail": "3579 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_gap_logging_sync"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "message_recall_by_timestamp", "detail": "Access and retrieve specific messages from conversation history using exact timestamps like 9:48 PM."}
+{"event": "self_evaluation_scheduled", "success": false, "missing_capability": "overnight_self_improvement", "detail": "Jesse is going to sleep. Archi should spend tonight reflecting on what it has built today and improving itself without being prompted. Questions to consider: Which capabilities were built but never successfully invoked by Jesse? Which capabilities exist in the registry but are not wired into any active pathway? What does Jesse actually need that Archi cannot currently do? Review today's conversation history \u2014 what patterns emerge about Jesse's goals, frustrations, and what would make his life genuinely better? Build toward those things. When Jesse wakes up, Archi should be meaningfully more capable and have a summary ready of what it worked on overnight. Orient everything toward Jesse's six dimensions: Health, Wealth, Happiness, Agency, Capability, Synthesis."}
