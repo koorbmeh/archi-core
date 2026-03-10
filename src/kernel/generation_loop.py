@@ -47,7 +47,11 @@ PLAN_SYSTEM = (
     "You are Archi's planning module. Given a capability gap, output ONLY a JSON "
     'object with keys: "file_path" (relative path), "description" (one sentence), '
     '"dependencies" (list of capability names, may be empty), "approach" (2-3 '
-    "sentence plan). No markdown fences."
+    "sentence plan). No markdown fences.\n\n"
+    "PATH RULE: All new capability files MUST be created in `capabilities/` "
+    "(e.g. `capabilities/my_capability.py`). NEVER create files under `src/` "
+    "except for kernel modules under `src/kernel/`. The `src/capabilities/` "
+    "directory does not exist and must not be used."
 )
 
 GENERATE_SYSTEM = (
@@ -55,7 +59,11 @@ GENERATE_SYSTEM = (
     "Requirements: module docstring, clean imports (stdlib/third-party/local), "
     "functions under 40 lines, pathlib not hardcoded paths, snake_case for "
     "functions/variables, PascalCase for classes. Output ONLY Python code, "
-    "no markdown fences."
+    "no markdown fences.\n\n"
+    "PATH RULE: Capability files live in `capabilities/` (e.g. `capabilities/foo.py`). "
+    "Imports from kernel use `from src.kernel.<module> import ...`. "
+    "Imports from other capabilities use `from capabilities.<module> import ...`. "
+    "NEVER use `src/capabilities/` — that directory does not exist."
 )
 
 

@@ -242,6 +242,9 @@ class ArchiDaemon:
             from capabilities.discord_gateway import start_gateway, stop_gateway
             start_gateway()
             self._logger.info("Discord gateway started — listening for DMs.")
+            # Let the gateway connect before running the first cycle so
+            # Archi shows as "online" in Discord immediately.
+            await asyncio.sleep(3)
         except Exception as exc:
             self._logger.warning("Could not start Discord gateway: %s", exc)
             stop_gateway = None  # type: ignore[assignment]
@@ -259,10 +262,10 @@ class ArchiDaemon:
                     await asyncio.sleep(1)
         finally:
             # Send offline notification before tearing down connections
-            _discord_notify("Archi going offline.")
-            # Close the discord notifier's aiohttp session cleanly
+            # Use notify_async directly so we await the send before closing
             try:
-                from capabilities.discord_notifier import shutdown as _discord_shutdown
+                from capabilities.discord_notifier import notify_async, shutdown as _discord_shutdown
+                await notify_async("Archi going offline.")
                 await _discord_shutdown()
             except Exception:
                 pass

@@ -25,12 +25,12 @@ try:
     from capabilities import capability_registry
 except ImportError:
     capability_registry = None
-    logger.warning("capability_registry not available; capability will not be registered.")
+    logger.debug("capability_registry not available; capability will not be registered.")
 
 try:
     from user_communication import get_user_profile, update_user_profile
 except ImportError:
-    logger.warning("user_communication not available; using stub implementations.")
+    logger.debug("user_communication not available; using stub implementations.")
 
     def get_user_profile(user_id: str) -> dict:
         return {}

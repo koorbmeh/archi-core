@@ -56,6 +56,7 @@ class ArchiBotClient(discord.Client):
         intents = discord.Intents.default()
         intents.dm_messages = True
         intents.message_content = True
+        intents.presences = True
         super().__init__(intents=intents, **kwargs)
         self._target_user_id = target_user_id
         self._receive_fn = receive_fn

@@ -1,0 +1,140 @@
+[
+  {
+    "name": "self_modifier",
+    "module": "src/kernel/self_modifier.py",
+    "description": "Kernel component: self_modifier",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "gap_detector",
+    "module": "src/kernel/gap_detector.py",
+    "description": "Kernel component: gap_detector",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "capability_registry",
+    "module": "src/kernel/capability_registry.py",
+    "description": "Kernel component: capability_registry",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "model_interface",
+    "module": "src/kernel/model_interface.py",
+    "description": "Kernel component: model_interface",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "generation_loop",
+    "module": "src/kernel/generation_loop.py",
+    "description": "Kernel component: generation_loop",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "alignment_gates",
+    "module": "src/kernel/alignment_gates.py",
+    "description": "Kernel component: alignment_gates",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "user_communication",
+    "module": "capabilities/user_communication.py",
+    "description": "Implements robust user communication handling for sending messages, receiving input, and managing conversation state.",
+    "status": "active",
+    "dependencies": [
+      "model_interface"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "push_notification",
+    "module": "capabilities/push_notification.py",
+    "description": "Implements push notification sending via a service like Firebase Cloud Messaging for asynchronous user alerts.",
+    "status": "active",
+    "dependencies": [
+      "user_communication"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "discord_notifier",
+    "module": "capabilities/discord_notifier.py",
+    "description": "Implements sending asynchronous notifications to Jesse via Discord direct messages using DISCORD_BOT_TOKEN and JESSE_DISCORD_ID.",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "event_loop",
+    "module": "capabilities/event_loop.py",
+    "description": "Implements a persistent asyncio event loop enabling Archi to run continuously, monitor for user messages from Jesse, detect gaps, and execute actions without exiting after each cycle.",
+    "status": "active",
+    "dependencies": [
+      "user_communication",
+      "gap_detector",
+      "capability_registry",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "api_introspection",
+    "module": "capabilities/api_introspection.py",
+    "description": "Provides a mechanism to introspect available functions, signatures, and docstrings in registered capabilities and modules before generating dependent code.",
+    "status": "active",
+    "dependencies": [
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "discord_gateway",
+    "module": "capabilities/discord_gateway.py",
+    "description": "Establishes a persistent Discord gateway WebSocket connection using discord.py to receive MESSAGE_CREATE events for DMs from Jesse and routes them to Archi's user_communication for processing.",
+    "status": "active",
+    "dependencies": [
+      "event_loop",
+      "user_communication"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "discord_listener",
+    "module": "capabilities/discord_listener.py",
+    "description": "Establishes a persistent Discord WebSocket listener using discord_gateway to receive DMs from Jesse and processes them to trigger the generation loop or execute direct instructions.",
+    "status": "active",
+    "dependencies": [
+      "discord_gateway",
+      "event_loop",
+      "model_interface",
+      "generation_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "self_evaluator",
+    "module": "capabilities/self_evaluator.py",
+    "description": "Provides a periodic self-reflection loop that analyzes interaction logs and operational history to proactively generate capability gaps and insights on improving service to Jesse.",
+    "status": "active",
+    "dependencies": [
+      "model_interface",
+      "gap_detector",
+      "capability_registry",
+      "event_loop",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  }
+]
