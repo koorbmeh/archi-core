@@ -27,13 +27,18 @@ except ImportError:
 
 
 class DiscordNotifier:
-    """Async Discord notifier that sends direct messages to a specified user."""
+    """Async Discord notifier that sends direct messages to a specified user.
+
+    Each API call creates a fresh aiohttp.ClientSession and closes it after use.
+    This avoids ``RuntimeError: Event loop is closed`` when the notifier is called
+    from different event-loop contexts (e.g. ``asyncio.run()`` in the sync wrapper
+    vs. a long-running listener loop).
+    """
 
     def __init__(self, bot_token: str, target_user_id: str) -> None:
         self.bot_token = bot_token
         self.target_user_id = target_user_id
         self._dm_channel_id: Optional[str] = None
-        self._session: Optional[aiohttp.ClientSession] = None
         self._rate_limit_reset: float = 0.0
 
     def _get_headers(self) -> dict:
@@ -41,11 +46,6 @@ class DiscordNotifier:
             "Authorization": f"Bot {self.bot_token}",
             "Content-Type": "application/json",
         }
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(headers=self._get_headers())
-        return self._session
 
     async def _wait_for_rate_limit(self) -> None:
         now = time.monotonic()
@@ -63,29 +63,29 @@ class DiscordNotifier:
         if self._dm_channel_id:
             return self._dm_channel_id
 
-        session = await self._get_session()
         url = f"{DISCORD_API_BASE}/users/@me/channels"
         payload = {"recipient_id": self.target_user_id}
 
         await self._wait_for_rate_limit()
         try:
-            async with session.post(url, json=payload) as response:
-                await self._handle_rate_limit_headers(response)
-                if response.status == 429:
-                    logger.error("Rate limited when creating DM channel.")
-                    return None
-                if response.status not in (200, 201):
-                    text = await response.text()
-                    logger.error(
-                        "Failed to create DM channel. Status: %d, Response: %s",
-                        response.status,
-                        text,
-                    )
-                    return None
-                data = await response.json()
-                self._dm_channel_id = data.get("id")
-                logger.info("DM channel established: %s", self._dm_channel_id)
-                return self._dm_channel_id
+            async with aiohttp.ClientSession(headers=self._get_headers()) as session:
+                async with session.post(url, json=payload) as response:
+                    await self._handle_rate_limit_headers(response)
+                    if response.status == 429:
+                        logger.error("Rate limited when creating DM channel.")
+                        return None
+                    if response.status not in (200, 201):
+                        text = await response.text()
+                        logger.error(
+                            "Failed to create DM channel. Status: %d, Response: %s",
+                            response.status,
+                            text,
+                        )
+                        return None
+                    data = await response.json()
+                    self._dm_channel_id = data.get("id")
+                    logger.info("DM channel established: %s", self._dm_channel_id)
+                    return self._dm_channel_id
         except aiohttp.ClientError as exc:
             logger.exception("Network error while creating DM channel: %s", exc)
             return None
@@ -108,36 +108,34 @@ class DiscordNotifier:
             logger.error("No DM channel available. Cannot send message.")
             return False
 
-        session = await self._get_session()
         url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
         payload = {"content": text}
 
         await self._wait_for_rate_limit()
         try:
-            async with session.post(url, json=payload) as response:
-                await self._handle_rate_limit_headers(response)
-                if response.status == 429:
-                    logger.warning("Rate limited when sending message. Will retry on next call.")
-                    return False
-                if response.status not in (200, 201):
-                    body = await response.text()
-                    logger.error(
-                        "Failed to send Discord message. Status: %d, Body: %s",
-                        response.status,
-                        body,
-                    )
-                    return False
-                logger.info("Discord message sent successfully to channel %s.", channel_id)
-                return True
+            async with aiohttp.ClientSession(headers=self._get_headers()) as session:
+                async with session.post(url, json=payload) as response:
+                    await self._handle_rate_limit_headers(response)
+                    if response.status == 429:
+                        logger.warning("Rate limited when sending message. Will retry on next call.")
+                        return False
+                    if response.status not in (200, 201):
+                        body = await response.text()
+                        logger.error(
+                            "Failed to send Discord message. Status: %d, Body: %s",
+                            response.status,
+                            body,
+                        )
+                        return False
+                    logger.info("Discord message sent successfully to channel %s.", channel_id)
+                    return True
         except aiohttp.ClientError as exc:
             logger.exception("Network error while sending Discord message: %s", exc)
             return False
 
     async def close(self) -> None:
-        """Close the underlying aiohttp session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            logger.info("DiscordNotifier session closed.")
+        """No-op — sessions are now created and closed per-call."""
+        pass
 
 
 def _build_notifier() -> Optional[DiscordNotifier]:
@@ -162,7 +160,13 @@ def notify(text: str) -> bool:
     """Send a Discord notification synchronously using the module-level notifier.
 
     This function provides a simple synchronous interface suitable for use
-    as a registered capability.
+    as a registered capability.  It always uses ``asyncio.run()`` to create a
+    fresh event loop, which pairs with the per-call session strategy in
+    ``DiscordNotifier`` to avoid stale-loop errors.
+
+    When called from an already-running loop (e.g. inside the Discord listener),
+    the coroutine is scheduled with ``ensure_future`` and returns True
+    optimistically — callers in that context should prefer ``notify_async``.
 
     Args:
         text: The message text to send.
@@ -174,15 +178,19 @@ def notify(text: str) -> bool:
         logger.error("DiscordNotifier is not configured. Cannot send notification.")
         return False
 
+    # Check if there's already a running event loop (e.g. inside discord_listener).
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            future = asyncio.ensure_future(_notifier_instance.send_message(text))
-            return True
-        else:
-            return loop.run_until_complete(_notifier_instance.send_message(text))
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(_notifier_instance.send_message(text))
+        loop = None
+
+    if loop is not None and loop.is_running():
+        # We're inside an async context — schedule and return optimistically.
+        asyncio.ensure_future(_notifier_instance.send_message(text))
+        return True
+
+    # No running loop — create a fresh one via asyncio.run().
+    return asyncio.run(_notifier_instance.send_message(text))
 
 
 async def notify_async(text: str) -> bool:
