@@ -41,9 +41,16 @@ SYSTEM_PROMPT = (
     "  - CONVERSATION: Jesse is talking — respond naturally and briefly, "
     "like someone who knows him and is genuinely present\n"
     "  - TRIGGER_GENERATION: Jesse explicitly wants Archi to run a development cycle\n\n"
-    "Respond with a JSON object: "
-    "{\"intent\": \"<INTENT>\", \"response\": \"<what to say back to Jesse>\", "
-    "\"gap_description\": \"<if GAP or REQUEST that can't be fulfilled, describe the gap>\"}.\n\n"
+    "Respond with a JSON object:\n"
+    "{\n"
+    '  "intent": "<INTENT>",\n'
+    '  "response": "<what to say back to Jesse>",\n'
+    '  "gap_name": "<snake_case capability name if GAP or unfulfilled REQUEST, e.g. '
+    'conversational_memory, weather_lookup, calendar_sync>",\n'
+    '  "gap_description": "<if GAP or unfulfilled REQUEST, describe the missing capability>"\n'
+    "}\n\n"
+    "gap_name must be a short snake_case identifier for the missing capability. "
+    "This is how Archi's generation loop knows what to build next.\n\n"
     "Never say 'Got it. No action needed.' Never be robotic. "
     "Jesse is the person you exist to help. Treat his offhand comments as important signals. "
     "An observation like 'you don't show up as online' is a gap. "
@@ -112,12 +119,13 @@ async def _handle_message(
 
     intent = data.get("intent", "").upper()
     reply = data.get("response", "")
+    gap_name = data.get("gap_name", "")
     gap_description = data.get("gap_description", "")
 
     if intent == "GAP":
-        _dispatch_gap(reply, gap_description)
+        _dispatch_gap(reply, gap_name, gap_description)
     elif intent == "REQUEST":
-        _dispatch_request(reply, gap_description, repo_path, registry)
+        _dispatch_request(reply, gap_name, gap_description, repo_path, registry)
     elif intent == "CONVERSATION":
         _dispatch_conversation(reply)
     elif intent == "TRIGGER_GENERATION":
@@ -127,17 +135,18 @@ async def _handle_message(
         _dispatch_conversation(reply or "I'm here.")
 
 
-def _dispatch_gap(reply: str, gap_description: str) -> None:
+def _dispatch_gap(reply: str, gap_name: str, gap_description: str) -> None:
     """Log a capability gap revealed by Jesse, then respond."""
     logger.info("Intent=GAP: %s", gap_description)
-    if gap_description:
-        _write_gap_to_oplog(gap_description, source="discord_dm")
+    if gap_name and gap_description:
+        _write_gap_to_oplog(gap_name, gap_description, source="discord_dm")
     if reply:
         discord_notify(reply)
 
 
 def _dispatch_request(
     reply: str,
+    gap_name: str,
     gap_description: str,
     repo_path: str,
     registry: CapabilityRegistry,
@@ -146,7 +155,7 @@ def _dispatch_request(
     logger.info("Intent=REQUEST: %s", reply)
     if gap_description:
         # Can't fulfill — log the gap and tell Jesse
-        _write_gap_to_oplog(gap_description, source="discord_request")
+        _write_gap_to_oplog(gap_name or "unknown_request", gap_description, source="discord_request")
         if reply:
             discord_notify(reply)
     else:
@@ -176,12 +185,16 @@ def _dispatch_trigger(
     _notify_cycle_outcome(result)
 
 
-def _write_gap_to_oplog(description: str, source: str = "discord_dm") -> None:
-    """Append a gap entry to the operation log so gap_detector picks it up."""
+def _write_gap_to_oplog(gap_name: str, description: str, source: str = "discord_dm") -> None:
+    """Append a gap entry to the operation log so gap_detector picks it up.
+
+    Uses the same format detect_operational_gaps expects:
+    {"event": "...", "success": false, "missing_capability": "...", "detail": "..."}
+    """
     entry = {
-        "timestamp": time.time(),
-        "type": "gap_signal",
-        "source": source,
+        "event": f"gap_signal_from_{source}",
+        "success": False,
+        "missing_capability": gap_name,
         "detail": description,
     }
     try:
