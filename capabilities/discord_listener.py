@@ -80,6 +80,28 @@ def receive_message(
     })
 
 
+async def process_one(
+    repo_path: str,
+    registry: CapabilityRegistry,
+) -> bool:
+    """Dequeue and process a single message.
+
+    Returns True if a message was processed, False if the queue was empty.
+    The caller (ArchiDaemon) holds the shared lock while this runs so that
+    message processing and generation cycles never touch shared state
+    (operation log, capability registry, git) at the same time.
+    """
+    try:
+        msg = _message_queue.get_nowait()
+    except queue.Empty:
+        return False
+    await _handle_message(
+        msg["content"], repo_path, registry,
+        attachment_urls=msg.get("attachment_urls", []),
+    )
+    return True
+
+
 async def process_pending(
     repo_path: str,
     registry: CapabilityRegistry,
@@ -87,17 +109,13 @@ async def process_pending(
     """Drain the message queue and process each message.
 
     Returns the number of messages processed.
+    Legacy convenience wrapper — the daemon now uses process_one() instead.
     """
     processed = 0
     while not _message_queue.empty():
-        try:
-            msg = _message_queue.get_nowait()
-        except queue.Empty:
+        did = await process_one(repo_path, registry)
+        if not did:
             break
-        await _handle_message(
-            msg["content"], repo_path, registry,
-            attachment_urls=msg.get("attachment_urls", []),
-        )
         processed += 1
     return processed
 

@@ -161,7 +161,21 @@ def _discord_notify(text: str) -> bool:
 # ---------------------------------------------------------------------------
 
 class ArchiDaemon:
-    """Persistent Archi process that runs cycles on a schedule."""
+    """Persistent Archi process with two parallel tasks.
+
+    Architecture (Option B):
+    - **Message task**: polls the Discord listener queue every 2 seconds and
+      processes messages immediately.  Conversations feel near-instant.
+    - **Generation task**: runs gap-detect → plan → generate → integrate on a
+      timer, but only when the message task isn't holding the lock.
+
+    Both tasks share an asyncio.Lock so they never write to the operation log,
+    capability registry, or git working tree at the same time.  The message
+    task holds the lock briefly (classify + log + respond).  The generation
+    task holds it for the full build sequence.
+    """
+
+    MESSAGE_POLL_SECONDS = 2  # how often we check for new Discord messages
 
     def __init__(
         self,
@@ -177,51 +191,99 @@ class ArchiDaemon:
         self.interval = interval
         self.max_cycles_per_wake = max_cycles_per_wake
         self._running = False
+        self._lock = asyncio.Lock()
         self._logger = logging.getLogger("archi.daemon")
 
-    async def _run_wake_cycle(self) -> None:
-        """Run up to max_cycles_per_wake cycles in one wake period.
+    # ------------------------------------------------------------------
+    # Message task — responds to Jesse's DMs in near-realtime
+    # ------------------------------------------------------------------
 
-        Also drains any pending Discord messages from the listener queue.
+    async def _message_loop(self) -> None:
+        """Continuously poll the Discord message queue and process each one.
+
+        Acquires the shared lock only while processing a single message so
+        that generation cycles can interleave between messages.
         """
-        clean_stale_git_locks()
-        reset_session()
+        self._logger.info("Message loop started (poll every %ds).", self.MESSAGE_POLL_SECONDS)
+        while self._running:
+            try:
+                from capabilities.discord_listener import process_one
+                # Drain one message at a time so we release the lock between
+                # messages and give the generation task a chance to acquire it.
+                while self._running:
+                    async with self._lock:
+                        processed = await process_one(REPO_ROOT, self.registry)
+                    if not processed:
+                        break  # queue is empty
+                    self._logger.info("Processed a Discord message.")
+            except Exception as exc:
+                self._logger.debug("Message loop poll: %s", exc)
 
-        # Process any pending Discord messages from Jesse
-        try:
-            from capabilities.discord_listener import process_pending
-            count = await process_pending(REPO_ROOT, self.registry)
-            if count:
-                self._logger.info("Processed %d pending Discord message(s).", count)
-        except Exception as exc:
-            self._logger.debug("Discord listener poll: %s", exc)
+            # Wait before polling again — short enough for near-instant feel
+            for _ in range(self.MESSAGE_POLL_SECONDS):
+                if not self._running:
+                    return
+                await asyncio.sleep(1)
 
+    # ------------------------------------------------------------------
+    # Generation task — builds capabilities on a schedule
+    # ------------------------------------------------------------------
+
+    async def _generation_loop(self) -> None:
+        """Run generation cycles on a timer, acquiring the lock for each cycle.
+
+        Only starts a cycle when the lock is available (i.e. no message is
+        being processed).  After a batch of up to max_cycles_per_wake cycles,
+        sleeps for the configured interval before trying again.
+        """
+        self._logger.info("Generation loop started (interval %ds).", self.interval)
         loop = asyncio.get_running_loop()
-        for cycle_num in range(1, self.max_cycles_per_wake + 1):
-            self._logger.info("--- Wake cycle %d of %d ---", cycle_num, self.max_cycles_per_wake)
-            # Run the synchronous generation cycle in a thread executor so it
-            # doesn't block the event loop. This prevents discord.py heartbeat
-            # timeouts during long API calls and pytest runs.
-            result = await loop.run_in_executor(
-                None,
-                lambda: run_cycle(
-                    REPO_ROOT, self.registry, OP_LOG_PATH,
-                    plan_fn=self.plan_fn, generate_fn=self.codegen_fn,
-                ),
+
+        while self._running:
+            clean_stale_git_locks()
+            reset_session()
+
+            for cycle_num in range(1, self.max_cycles_per_wake + 1):
+                if not self._running:
+                    return
+                self._logger.info(
+                    "--- Generation cycle %d of %d ---",
+                    cycle_num, self.max_cycles_per_wake,
+                )
+                async with self._lock:
+                    result = await loop.run_in_executor(
+                        None,
+                        lambda: run_cycle(
+                            REPO_ROOT, self.registry, OP_LOG_PATH,
+                            plan_fn=self.plan_fn, generate_fn=self.codegen_fn,
+                        ),
+                    )
+                print_result(result, cycle_num)
+
+                if result.phase_reached == "observe":
+                    self._logger.info("No gaps remain. Sleeping until next interval.")
+                    break
+                if result.error and "budget" in result.error.lower():
+                    self._logger.warning("Budget limit hit — sleeping until next interval.")
+                    break
+
+            self._logger.info(
+                "Generation batch done. Session cost: $%.4f. Sleeping %ds.",
+                get_session_cost(), self.interval,
             )
-            print_result(result, cycle_num)
 
-            if result.phase_reached == "observe":
-                self._logger.info("No gaps remain. Sleeping until next wake.")
-                break
-            if result.error and "budget" in result.error.lower():
-                self._logger.warning("Budget limit hit — sleeping until next wake.")
-                break
+            # Sleep in 1-second increments so shutdown is responsive
+            for _ in range(self.interval):
+                if not self._running:
+                    return
+                await asyncio.sleep(1)
 
-        self._logger.info("Wake session cost: $%.4f", get_session_cost())
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
 
     async def run(self) -> None:
-        """Main daemon loop — run cycles, sleep, repeat."""
+        """Start both tasks and wait for shutdown."""
         self._running = True
         loop = asyncio.get_running_loop()
 
@@ -230,8 +292,7 @@ class ArchiDaemon:
             try:
                 loop.add_signal_handler(sig, self._shutdown, sig)
             except (NotImplementedError, RuntimeError):
-                # Windows doesn't support add_signal_handler
-                pass
+                pass  # Windows doesn't support add_signal_handler
 
         # Startup notification
         cap_count = len(self.registry.list_active())
@@ -246,30 +307,27 @@ class ArchiDaemon:
 
         # Start Discord gateway so Archi can receive DMs from Jesse
         try:
-            from capabilities.discord_gateway import start_gateway, stop_gateway
+            from capabilities.discord_gateway import start_gateway
             start_gateway()
             self._logger.info("Discord gateway started — listening for DMs.")
-            # Let the gateway connect before running the first cycle so
-            # Archi shows as "online" in Discord immediately.
+            # Let the gateway connect before spawning tasks
             await asyncio.sleep(3)
         except Exception as exc:
             self._logger.warning("Could not start Discord gateway: %s", exc)
-            stop_gateway = None  # type: ignore[assignment]
+
+        # Spawn the two independent tasks
+        msg_task = asyncio.create_task(
+            self._message_loop(), name="archi_message_loop",
+        )
+        gen_task = asyncio.create_task(
+            self._generation_loop(), name="archi_generation_loop",
+        )
 
         try:
-            while self._running:
-                await self._run_wake_cycle()
-                if not self._running:
-                    break
-                self._logger.info("Sleeping %ds until next wake...", self.interval)
-                # Sleep in small increments so shutdown signal is responsive
-                for _ in range(self.interval):
-                    if not self._running:
-                        break
-                    await asyncio.sleep(1)
+            # Wait until both finish (which only happens on shutdown)
+            await asyncio.gather(msg_task, gen_task, return_exceptions=True)
         finally:
             # Send offline notification before tearing down connections
-            # Use notify_async directly so we await the send before closing
             try:
                 from capabilities.discord_notifier import notify_async, shutdown as _discord_shutdown
                 await notify_async("Archi going offline.")
