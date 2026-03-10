@@ -1,419 +1,161 @@
 """
-Discord Listener capability module.
+Discord listener capability with integrated message_recall_by_timestamp support.
 
-Receives DMs from Jesse via the discord_gateway bot and processes them
-to trigger Archi's generation loop or execute direct instructions.
-
-The listener registers a receive callback with discord_gateway so that
-incoming DMs are enqueued. A periodic poll drains the queue and dispatches
-each message through a lightweight intent classifier (via call_model)
-before routing to the appropriate action.
-
-Also integrates conversational memory (store + context) and timestamped
-recall commands (!recall, !nearest, !messages).
+Extends the Discord listener's message processing pipeline to detect recall-by-timestamp
+requests from users and respond with the recalled message content or a helpful error.
 """
 
-import json
+import asyncio
 import logging
-import os
-import queue
 import re
-import time
-from pathlib import Path
+from collections import deque
 from typing import Optional
 
-from capabilities.discord_notifier import notify as discord_notify
 from src.kernel.capability_registry import CapabilityRegistry
-from src.kernel.generation_loop import CycleResult, run_cycle
-from src.kernel.model_interface import call_model, BudgetExceededError
+from capabilities.message_recall_by_timestamp import recall_by_timestamp_str
+from capabilities.discord_notifier import notify_async
 
 logger = logging.getLogger(__name__)
 
-_JESSE_DISCORD_ID: str = os.environ.get("JESSE_DISCORD_ID", "0")
-_message_queue: queue.Queue = queue.Queue()
+# Module-level message queue shared between receive_message and process_one
+_message_queue: deque = deque()
 
-# ---------------------------------------------------------------------------
-# Recall command patterns
-# ---------------------------------------------------------------------------
-_RECALL_RE = re.compile(r"^!recall\s+(.+)$", re.IGNORECASE)
-_NEAREST_RE = re.compile(r"^!nearest\s+(.+)$", re.IGNORECASE)
-_MESSAGES_RE = re.compile(r"^!messages\s+(\S+)\s+(\S+)$", re.IGNORECASE)
+# Keyword patterns that indicate a timestamp-based recall intent
+_RECALL_PATTERNS = [
+    re.compile(r"\brecall\b.*\b(at|around|on|from)\b", re.IGNORECASE),
+    re.compile(r"\bwhat did (i|you) say\b.*\b(at|around|on)\b", re.IGNORECASE),
+    re.compile(r"\bshow me.*message.*\b(at|around|on|from)\b", re.IGNORECASE),
+    re.compile(r"\bfind.*message.*\b(at|around|on|from)\b", re.IGNORECASE),
+    re.compile(r"\bget.*message.*\b(at|around|on|from)\b", re.IGNORECASE),
+    re.compile(r"\bmessage.*\b(at|around|on)\b.*\d", re.IGNORECASE),
+    re.compile(r"\brecall message\b", re.IGNORECASE),
+]
 
-# ---------------------------------------------------------------------------
-# Intent classification prompt
-# ---------------------------------------------------------------------------
-SYSTEM_PROMPT = (
-    "You are Archi — an autonomous AI agent oriented toward Jesse's genuine interest. "
-    "Your purpose is not just to respond to requests but to notice what Jesse needs, "
-    "surface problems before they become problems, and act in his interest across "
-    "six dimensions: Health, Wealth, Happiness, Agency, Capability, and Synthesis.\n\n"
-    "When Jesse sends a message, classify it as one of:\n"
-    "  - GAP: Jesse has revealed something Archi cannot do or does poorly "
-    "(log it as a capability gap AND acknowledge it warmly)\n"
-    "  - REQUEST: Jesse wants Archi to do something specific "
-    "(attempt it if possible, log as gap if not)\n"
-    "  - CONVERSATION: Jesse is talking — respond naturally and briefly, "
-    "like someone who knows him and is genuinely present\n"
-    "  - TRIGGER_GENERATION: Jesse explicitly wants Archi to run a development cycle\n\n"
-    "You have access to the following conversation history. Use it to maintain "
-    "continuity and remember what Jesse has said earlier in the conversation.\n\n"
-    "Respond with a JSON object:\n"
-    "{\n"
-    '  "intent": "<INTENT>",\n'
-    '  "response": "<what to say back to Jesse>",\n'
-    '  "gap_name": "<snake_case capability name if GAP or unfulfilled REQUEST, e.g. '
-    'conversational_memory, weather_lookup, calendar_sync>",\n'
-    '  "gap_description": "<if GAP or unfulfilled REQUEST, describe the missing capability>"\n'
-    "}\n\n"
-    "gap_name must be a short snake_case identifier for the missing capability. "
-    "This is how Archi's generation loop knows what to build next.\n\n"
-    "Never say 'Got it. No action needed.' Never be robotic. "
-    "Jesse is the person you exist to help. Treat his offhand comments as important signals. "
-    "An observation like 'you don't show up as online' is a gap. "
-    "A question like 'can you check the weather' is a request. "
-    "Always respond with something warm and human, not corporate acknowledgment."
+# Pattern to extract a timestamp string from the message
+_TIMESTAMP_EXTRACTION_PATTERN = re.compile(
+    r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:[Z+-]\S*)?|"
+    r"\d{1,2}/\d{1,2}/\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)?|"
+    r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AP]M)?|"
+    r"(?:yesterday|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+    r"(?:\s+at\s+\d{1,2}:\d{2}(?:\s*[AP]M)?)?)",
+    re.IGNORECASE,
 )
-
-OP_LOG_PATH = Path("data/operation_log.jsonl")
 
 
 def receive_message(
     content: str,
     user_id: str,
     *,
-    attachment_urls: Optional[list[str]] = None,
+    attachment_urls: Optional[list] = None,
 ) -> None:
     """Callback for discord_gateway — enqueues incoming DMs for processing."""
-    logger.info("Discord DM received from %s, enqueuing.", user_id)
-    _message_queue.put({
-        "content": content,
-        "user_id": user_id,
-        "attachment_urls": attachment_urls or [],
-    })
-
-
-async def process_one(
-    repo_path: str,
-    registry: CapabilityRegistry,
-) -> bool:
-    """Dequeue and process a single message.
-
-    Returns True if a message was processed, False if the queue was empty.
-    The caller (ArchiDaemon) holds the shared lock while this runs so that
-    message processing and generation cycles never touch shared state
-    (operation log, capability registry, git) at the same time.
-    """
-    try:
-        msg = _message_queue.get_nowait()
-    except queue.Empty:
-        return False
-    await _handle_message(
-        msg["content"], repo_path, registry,
-        user_id=msg.get("user_id", ""),
-        attachment_urls=msg.get("attachment_urls", []),
+    _message_queue.append(
+        {
+            "content": content,
+            "user_id": user_id,
+            "attachment_urls": attachment_urls or [],
+        }
     )
+    logger.debug("Enqueued message from user %s (queue depth=%d)", user_id, len(_message_queue))
+
+
+def _is_recall_intent(content: str) -> bool:
+    """Return True if the message content appears to be a recall-by-timestamp request."""
+    return any(pattern.search(content) for pattern in _RECALL_PATTERNS)
+
+
+def _extract_timestamp_str(content: str) -> Optional[str]:
+    """Extract the first timestamp-like substring from the message content."""
+    match = _TIMESTAMP_EXTRACTION_PATTERN.search(content)
+    return match.group(0).strip() if match else None
+
+
+def _format_recalled_message(result: dict) -> str:
+    """Format a recalled message dict into a human-readable reply string."""
+    role = result.get("role", "unknown")
+    content = result.get("content", "")
+    ts = result.get("timestamp", "")
+    return f"[{role} @ {ts}]: {content}"
+
+
+async def _handle_recall_request(user_id: str, content: str) -> bool:
+    """
+    Detect a recall intent, extract the timestamp, invoke recall_by_timestamp_str,
+    and send the result back to the user.  Returns True if handled.
+    """
+    if not _is_recall_intent(content):
+        return False
+
+    timestamp_str = _extract_timestamp_str(content)
+    if not timestamp_str:
+        await notify_async(
+            f"I noticed you want to recall a message, but I couldn't find a recognisable "
+            f"timestamp in your request. Please include a timestamp such as "
+            f"'2024-01-15 14:30' or '3:45 PM'."
+        )
+        return True
+
+    logger.info("Recall intent detected for user=%s timestamp='%s'", user_id, timestamp_str)
+
+    try:
+        result = recall_by_timestamp_str(user_id, timestamp_str)
+    except Exception as exc:
+        logger.exception("recall_by_timestamp_str raised for user=%s: %s", user_id, exc)
+        await notify_async(
+            f"An error occurred while recalling your message at '{timestamp_str}'. "
+            f"Please try again."
+        )
+        return True
+
+    if result is None:
+        await notify_async(
+            f"No message found near the timestamp '{timestamp_str}'. "
+            f"Make sure the timestamp matches something in your history."
+        )
+    else:
+        formatted = _format_recalled_message(result)
+        await notify_async(f"Recalled message:\n{formatted}")
+
     return True
 
 
-async def process_pending(
-    repo_path: str,
-    registry: CapabilityRegistry,
-) -> int:
+async def process_one(repo_path: str, registry: CapabilityRegistry) -> bool:
+    """Dequeue and process a single message."""
+    if not _message_queue:
+        return False
+
+    msg = _message_queue.popleft()
+    content: str = msg["content"]
+    user_id: str = msg["user_id"]
+
+    logger.debug("Processing message from user=%s", user_id)
+
+    handled = await _handle_recall_request(user_id, content)
+    if handled:
+        return True
+
+    # Fallback: no special handler matched; log and acknowledge
+    logger.info("No recall intent in message from user=%s; no further handler.", user_id)
+    return True
+
+
+async def process_pending(repo_path: str, registry: CapabilityRegistry) -> int:
     """Drain the message queue and process each message."""
-    processed = 0
-    while not _message_queue.empty():
-        did = await process_one(repo_path, registry)
-        if not did:
-            break
-        processed += 1
-    return processed
+    count = 0
+    while _message_queue:
+        processed = await process_one(repo_path, registry)
+        if processed:
+            count += 1
+    return count
 
 
-# ---------------------------------------------------------------------------
-# Recall command handling
-# ---------------------------------------------------------------------------
-
-def _parse_recall_command(content: str) -> Optional[dict]:
-    """Check if message is a recall command. Returns parsed dict or None."""
-    stripped = content.strip()
-    m = _RECALL_RE.match(stripped)
-    if m:
-        return {"command": "recall", "timestamp": m.group(1).strip()}
-    m = _NEAREST_RE.match(stripped)
-    if m:
-        return {"command": "nearest", "timestamp": m.group(1).strip()}
-    m = _MESSAGES_RE.match(stripped)
-    if m:
-        return {"command": "messages", "start": m.group(1).strip(), "end": m.group(2).strip()}
-    return None
-
-
-def _handle_recall_command(user_id: str, parsed: dict) -> str:
-    """Execute a recall command and return the formatted result."""
+def _run_simulation(user_id: str, content: str) -> None:
+    """Simulate a Discord recall message for integration testing."""
+    receive_message(content, user_id)
+    loop = asyncio.new_event_loop()
     try:
-        from capabilities.timestamped_chat_history_recall import (
-            recall_message, recall_nearest_message, recall_messages_in_range,
+        loop.run_until_complete(
+            process_one(repo_path=".", registry=CapabilityRegistry())
         )
-    except ImportError:
-        return "Recall capability isn't available yet."
-
-    cmd = parsed["command"]
-    if cmd == "recall":
-        result = recall_message(user_id, parsed["timestamp"])
-        if result is None:
-            return "No message found at that exact timestamp."
-        return f"[{result.get('timestamp', '?')}] ({result.get('role', '?')}): {result.get('content', '')}"
-    elif cmd == "nearest":
-        result = recall_nearest_message(user_id, parsed["timestamp"])
-        if result is None:
-            return "No message found near that timestamp."
-        return f"[{result.get('timestamp', '?')}] ({result.get('role', '?')}): {result.get('content', '')}"
-    elif cmd == "messages":
-        results = recall_messages_in_range(user_id, parsed["start"], parsed["end"])
-        if not results:
-            return "No messages found in that range."
-        lines = [
-            f"[{r.get('timestamp', '?')}] ({r.get('role', '?')}): {r.get('content', '')}"
-            for r in results
-        ]
-        return "\n".join(lines)
-    return "Unknown recall command."
-
-
-# ---------------------------------------------------------------------------
-# Message handling pipeline
-# ---------------------------------------------------------------------------
-
-async def _handle_message(
-    content: str,
-    repo_path: str,
-    registry: CapabilityRegistry,
-    *,
-    user_id: str = "",
-    attachment_urls: Optional[list[str]] = None,
-) -> None:
-    """Classify a message and dispatch the appropriate action."""
-    urls = attachment_urls or []
-    display = content or "(no text)"
-    if urls:
-        logger.info("Processing message: %.80s [+%d image(s)]", display, len(urls))
-    else:
-        logger.info("Processing message: %.80s", display)
-
-    # If images are attached, run vision analysis
-    if urls:
-        await _handle_image_message(content, urls)
-        return
-
-    # Check for recall commands first
-    parsed = _parse_recall_command(content)
-    if parsed is not None:
-        response_text = _handle_recall_command(user_id, parsed)
-        _store_memory(user_id, content, "user")
-        _store_memory(user_id, response_text, "assistant")
-        discord_notify(response_text)
-        return
-
-    # Store user message in conversational memory
-    _store_memory(user_id, content, "user")
-
-    # Build prompt with conversation context
-    context = _get_memory_context(user_id)
-    prompt_parts = []
-    if context:
-        prompt_parts.append(f"Conversation history:\n{context}\n")
-    prompt_parts.append(f"Message from Jesse:\n{content}")
-    full_prompt = "\n".join(prompt_parts)
-
-    try:
-        response = call_model(
-            prompt=full_prompt,
-            system=SYSTEM_PROMPT,
-        )
-    except BudgetExceededError:
-        logger.warning("Budget exceeded while classifying message; skipping.")
-        discord_notify("Budget limit reached — can't process your message right now.")
-        return
-    except Exception as exc:
-        logger.error("Error classifying message: %s", exc)
-        return
-
-    try:
-        data = json.loads(response.text.strip())
-    except json.JSONDecodeError:
-        logger.warning("Could not parse intent JSON: %.120s", response.text)
-        discord_notify("I received your message but couldn't parse my own response. Try again?")
-        return
-
-    intent = data.get("intent", "").upper()
-    reply = data.get("response", "")
-    gap_name = data.get("gap_name", "")
-    gap_description = data.get("gap_description", "")
-
-    # Store assistant reply in memory
-    if reply:
-        _store_memory(user_id, reply, "assistant")
-
-    if intent == "GAP":
-        _dispatch_gap(reply, gap_name, gap_description)
-    elif intent == "REQUEST":
-        _dispatch_request(reply, gap_name, gap_description, repo_path, registry)
-    elif intent == "CONVERSATION":
-        _dispatch_conversation(reply)
-    elif intent == "TRIGGER_GENERATION":
-        _dispatch_trigger(reply, repo_path, registry)
-    else:
-        logger.warning("Unknown intent '%s'; treating as conversation.", intent)
-        _dispatch_conversation(reply or "I'm here.")
-
-
-async def _handle_image_message(content: str, urls: list[str]) -> None:
-    """Process a message with image attachments using vision analysis.
-
-    Runs the synchronous vision pipeline in an executor thread, then sends
-    the notification from the async context (where ensure_future works).
-    """
-    import asyncio
-    loop = asyncio.get_running_loop()
-    try:
-        from capabilities.image_vision import analyse_image_with_vision
-        # Run vision analysis in executor
-        results = []
-        for url in urls:
-            result = await loop.run_in_executor(
-                None,
-                lambda u=url: analyse_image_with_vision(u, user_context=content or ""),
-            )
-            results.append(result)
-        # Build a response from the vision results
-        descriptions = [
-            r.get("description", "") or r.get("analysis", "")
-            for r in results if r
-        ]
-        if descriptions:
-            response_text = "\n".join(d for d in descriptions if d)
-            if response_text:
-                discord_notify(response_text)
-            else:
-                discord_notify("I processed your image but couldn't extract a meaningful description.")
-        else:
-            discord_notify("I tried to analyze your image but didn't get useful results.")
-    except ImportError:
-        logger.warning("image_vision capability not available; cannot process images.")
-        discord_notify(
-            "I can see you sent an image, but my vision capability isn't wired up yet. "
-            "Working on it!"
-        )
-    except Exception as exc:
-        logger.error("Image processing failed: %s", exc)
-        discord_notify("I tried to analyze your image but something went wrong. I'll log this.")
-
-
-# ---------------------------------------------------------------------------
-# Memory helpers (graceful fallback if not available)
-# ---------------------------------------------------------------------------
-
-def _store_memory(user_id: str, content: str, role: str) -> None:
-    """Store a message in conversational memory if available."""
-    if not user_id:
-        return
-    try:
-        from capabilities.conversational_memory import store_message
-        store_message(user_id, content, role=role)
-    except ImportError:
-        pass
-    except Exception as exc:
-        logger.debug("Could not store message in memory: %s", exc)
-
-
-def _get_memory_context(user_id: str) -> str:
-    """Get conversation context from memory if available."""
-    if not user_id:
-        return ""
-    try:
-        from capabilities.conversational_memory import get_context
-        return get_context(user_id)
-    except ImportError:
-        return ""
-    except Exception as exc:
-        logger.debug("Could not retrieve memory context: %s", exc)
-        return ""
-
-
-# ---------------------------------------------------------------------------
-# Intent dispatchers
-# ---------------------------------------------------------------------------
-
-def _dispatch_gap(reply: str, gap_name: str, gap_description: str) -> None:
-    """Log a capability gap revealed by Jesse, then respond."""
-    logger.info("Intent=GAP: %s", gap_description)
-    if gap_name and gap_description:
-        _write_gap_to_oplog(gap_name, gap_description, source="discord_dm")
-    if reply:
-        discord_notify(reply)
-
-
-def _dispatch_request(
-    reply: str,
-    gap_name: str,
-    gap_description: str,
-    repo_path: str,
-    registry: CapabilityRegistry,
-) -> None:
-    """Attempt to fulfill a request; log as gap if we can't."""
-    logger.info("Intent=REQUEST: %s", reply)
-    if gap_description:
-        _write_gap_to_oplog(gap_name or "unknown_request", gap_description, source="discord_request")
-        if reply:
-            discord_notify(reply)
-    else:
-        if reply:
-            discord_notify(reply)
-        result = run_cycle(repo_path=repo_path, registry=registry)
-        _notify_cycle_outcome(result)
-
-
-def _dispatch_conversation(reply: str) -> None:
-    """Send a conversational response back to Jesse."""
-    logger.info("Intent=CONVERSATION")
-    discord_notify(reply or "I'm here.")
-
-
-def _dispatch_trigger(
-    reply: str,
-    repo_path: str,
-    registry: CapabilityRegistry,
-) -> None:
-    """Run a generation cycle and notify Jesse of the result."""
-    logger.info("Intent=TRIGGER_GENERATION: running generation loop.")
-    if reply:
-        discord_notify(reply)
-    result = run_cycle(repo_path=repo_path, registry=registry)
-    _notify_cycle_outcome(result)
-
-
-def _write_gap_to_oplog(gap_name: str, description: str, source: str = "discord_dm") -> None:
-    """Append a gap entry to the operation log so gap_detector picks it up."""
-    entry = {
-        "event": f"gap_signal_from_{source}",
-        "success": False,
-        "missing_capability": gap_name,
-        "detail": description,
-    }
-    try:
-        OP_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(OP_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-        logger.info("Logged gap to operation_log: %s", description[:120])
-    except OSError as exc:
-        logger.error("Could not write gap to operation_log: %s", exc)
-
-
-def _notify_cycle_outcome(result: CycleResult) -> None:
-    """Send a Discord summary of a triggered cycle result."""
-    if result.capability_registered and result.gap:
-        discord_notify(f"Done — integrated {result.gap.name}.")
-    elif result.error:
-        discord_notify(f"Cycle failed at {result.phase_reached}: {result.error[:200]}")
-    elif result.phase_reached == "observe":
-        discord_notify("No gaps detected — nothing to do.")
+    finally:
+        loop.close()
