@@ -1,145 +1,99 @@
 """
-Image analysis capability for Archi.
+capabilities/image_analysis.py
 
-Downloads images from Discord attachment URLs, extracts text via OCR,
-and uses vision-capable LLMs to identify capability gaps, summarize
-conversations, or extract insights from screenshots.
+Comprehensive image analysis module providing OCR text extraction, vision-based
+description, and detection of Archi capability gaps from screenshots or visual
+error logs in Discord attachments.
+
+Integrates with image_ocr, image_vision, gap_detector, discord_notifier, and
+conversational_memory to process Discord attachments automatically and report
+results or newly detected gaps back to the user.
 """
 
-import base64
-import io
 import logging
 import re
-from pathlib import Path
-from typing import Optional
+from typing import Any
 
-import requests
-
-from src.kernel.gap_detector import Gap
+from capabilities import image_ocr
+from capabilities import image_vision
+from capabilities import discord_notifier
+from capabilities import conversational_memory
+from src.kernel import gap_detector as gd
+from src.kernel.capability_registry import CapabilityRegistry
 from src.kernel.model_interface import call_model, BudgetExceededError
-from capabilities.discord_notifier import notify
 
 logger = logging.getLogger(__name__)
 
-# OCR backend selection — prefer easyocr, fall back to pytesseract, then skip
-_OCR_BACKEND: Optional[str] = None
-
-try:
-    import easyocr
-    _OCR_BACKEND = "easyocr"
-    _EASYOCR_READER = None  # lazy-init to avoid slow startup
-except ImportError:
-    try:
-        import pytesseract
-        from PIL import Image
-        _OCR_BACKEND = "pytesseract"
-    except ImportError:
-        logger.warning("No OCR backend available (easyocr or pytesseract+pillow required).")
-
-# ──────────────────────────────────────────────
-# Internal helpers
-# ──────────────────────────────────────────────
-
-_GAP_KEYWORDS = [
-    "missing", "cannot", "can't", "unable", "not implemented",
-    "no capability", "lacks", "needs", "should add", "gap",
-    "todo", "fixme", "not supported",
+_GAP_PATTERNS = [
+    r"capability\s+['\"]?(\w+)['\"]?\s+not\s+(found|registered|available)",
+    r"unregistered\s+capability[:\s]+(\w+)",
+    r"missing\s+capability[:\s]+(\w+)",
+    r"no\s+module\s+named\s+['\"]capabilities\.(\w+)['\"]",
+    r"AttributeError.*capabilities\.(\w+)",
+    r"ImportError.*capabilities\.(\w+)",
+    r"KeyError[:\s]+['\"]?capabilities[./](\w+)['\"]?",
+    r"capability\s+gap[:\s]+(\w+)",
 ]
 
-_VISION_SYSTEM = (
-    "You are Archi, an AI assistant that analyses images and screenshots. "
-    "Identify any capability gaps, action items, conversation summaries, or "
-    "technical insights visible in the image. Be concise and structured."
+_ANALYSIS_SYSTEM_PROMPT = (
+    "You are Archi's image analysis engine. Examine the provided OCR text and "
+    "image description. Identify: (1) any error messages or stack traces, "
+    "(2) references to missing or broken capabilities, (3) the overall context "
+    "of what the image shows. Be concise and structured."
 )
 
 
-def _get_easyocr_reader():
-    """Return a cached easyocr Reader instance."""
-    global _EASYOCR_READER
-    if _EASYOCR_READER is None:
-        _EASYOCR_READER = easyocr.Reader(["en"], gpu=False, verbose=False)
-    return _EASYOCR_READER
-
-
-def _download_image(url: str, timeout: int = 15) -> Optional[bytes]:
-    """Download raw image bytes from a URL."""
-    try:
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-        return response.content
-    except requests.RequestException as exc:
-        logger.error("Failed to download image from %s: %s", url, exc)
-        return None
-
-
-def _extract_text_easyocr(image_bytes: bytes) -> str:
-    """Extract text from image bytes using easyocr."""
-    reader = _get_easyocr_reader()
-    results = reader.readtext(image_bytes, detail=0)
-    return "\n".join(results)
-
-
-def _extract_text_pytesseract(image_bytes: bytes) -> str:
-    """Extract text from image bytes using pytesseract."""
-    img = Image.open(io.BytesIO(image_bytes))
-    return pytesseract.image_to_string(img)
-
-
-def _ocr_image(image_bytes: bytes) -> str:
-    """Run OCR on image bytes using whichever backend is available."""
-    if _OCR_BACKEND == "easyocr":
-        return _extract_text_easyocr(image_bytes)
-    if _OCR_BACKEND == "pytesseract":
-        return _extract_text_pytesseract(image_bytes)
-    return ""
-
-
-def _image_to_base64(image_bytes: bytes) -> str:
-    """Encode image bytes as a base64 string."""
-    return base64.b64encode(image_bytes).decode("utf-8")
-
-
-def _build_vision_prompt(ocr_text: str, user_context: str = "") -> str:
-    """Build a prompt for vision-model analysis."""
-    parts = ["Please analyse this image."]
+def _build_analysis_prompt(ocr_text: str, vision_description: str, user_context: str) -> str:
+    parts = []
     if user_context:
         parts.append(f"User context: {user_context}")
     if ocr_text.strip():
-        parts.append(f"OCR-extracted text from the image:\n```\n{ocr_text}\n```")
+        parts.append(f"OCR extracted text:\n{ocr_text}")
+    if vision_description.strip():
+        parts.append(f"Vision model description:\n{vision_description}")
     parts.append(
-        "Provide:\n"
-        "1. A brief summary of what the image shows.\n"
-        "2. Any capability gaps or missing features observed.\n"
-        "3. Key insights or action items.\n"
-        "Use plain, structured text."
+        "Based on the above, provide a structured analysis. "
+        "Note any error messages, missing capabilities, or actionable findings."
     )
     return "\n\n".join(parts)
 
 
-def _parse_gaps_from_analysis(analysis_text: str, source: str) -> list[Gap]:
-    """Scan analysis output for capability gap patterns."""
-    gaps: list[Gap] = []
-    lines = analysis_text.splitlines()
-    for line in lines:
-        lower = line.lower()
-        if any(kw in lower for kw in _GAP_KEYWORDS):
-            name = re.sub(r"[^a-z0-9_\s]", "", lower).strip()[:60]
-            name = re.sub(r"\s+", "_", name) or "image_detected_gap"
-            gap = Gap(
-                name=name,
-                source=source,
-                reason=line.strip(),
-                priority=0.5,
-                evidence=[line.strip()],
-                detail=f"Detected in image analysis from {source}",
-            )
-            gaps.append(gap)
+def _scan_for_gap_patterns(text: str) -> list[str]:
+    """Scan text for patterns that suggest missing capabilities."""
+    found: list[str] = []
+    combined = text.lower()
+    for pattern in _GAP_PATTERNS:
+        for match in re.finditer(pattern, combined, re.IGNORECASE):
+            candidate = match.group(1) if match.lastindex else match.group(0)
+            if candidate and candidate not in found:
+                found.append(candidate)
+    return found
+
+
+def _detect_gaps_from_text(text: str, source_label: str) -> list[gd.Gap]:
+    """Create Gap objects from patterns found in text."""
+    candidates = _scan_for_gap_patterns(text)
+    gaps: list[gd.Gap] = []
+    for name in candidates:
+        gap = gd.Gap(
+            name=name,
+            source=source_label,
+            reason=f"Referenced as missing/unavailable in image analysis of {source_label}",
+            priority=0.7,
+            evidence=[text[:500]],
+        )
+        gaps.append(gap)
     return gaps
 
 
-# ──────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────
+def extract_ocr_text_from_url(url: str) -> str:
+    """Lightweight helper: download an image and return only the OCR text."""
+    try:
+        return image_ocr.extract_text(url)
+    except Exception as exc:
+        logger.warning("OCR extraction failed for %s: %s", url, exc)
+        return ""
+
 
 def analyse_image_url(
     url: str,
@@ -148,36 +102,53 @@ def analyse_image_url(
 ) -> dict:
     """
     Download an image, run OCR, call the LLM for analysis,
-    and return a result dict with keys: url, ocr_text, analysis, gaps.
+    detect capability gaps, and return a structured result dict.
     """
-    result = {"url": url, "ocr_text": "", "analysis": "", "gaps": []}
+    result: dict[str, Any] = {
+        "url": url,
+        "source_label": source_label,
+        "ocr_text": "",
+        "vision_description": "",
+        "llm_analysis": "",
+        "detected_gaps": [],
+        "error": None,
+    }
 
-    image_bytes = _download_image(url)
-    if image_bytes is None:
-        logger.warning("Could not download image: %s", url)
-        return result
-
-    ocr_text = _ocr_image(image_bytes)
+    ocr_text = extract_ocr_text_from_url(url)
     result["ocr_text"] = ocr_text
 
-    prompt = _build_vision_prompt(ocr_text, user_context)
     try:
-        response = call_model(
-            prompt=prompt,
-            system=_VISION_SYSTEM,
-            provider="anthropic",
-            model="claude-sonnet-4-6",
+        vision_data = image_vision.analyse_image_with_vision(
+            url, user_context=user_context, use_ocr=False
         )
-        analysis = response.text
-    except BudgetExceededError:
-        logger.warning("Budget exceeded during image analysis for %s", url)
-        analysis = f"[Budget exceeded] OCR text: {ocr_text}"
+        result["vision_description"] = vision_data.get("description", "")
     except Exception as exc:
-        logger.error("LLM call failed during image analysis: %s", exc)
-        analysis = f"[Error] {exc}"
+        logger.warning("Vision analysis failed for %s: %s", url, exc)
+        result["vision_description"] = ""
 
-    result["analysis"] = analysis
-    result["gaps"] = _parse_gaps_from_analysis(analysis, source_label)
+    combined_text = f"{ocr_text}\n{result['vision_description']}"
+
+    try:
+        prompt = _build_analysis_prompt(ocr_text, result["vision_description"], user_context)
+        response = call_model(prompt, system=_ANALYSIS_SYSTEM_PROMPT)
+        result["llm_analysis"] = response.text
+        combined_text += f"\n{response.text}"
+    except BudgetExceededError:
+        logger.warning("Budget exceeded during LLM analysis for %s", url)
+        result["llm_analysis"] = "(Budget exceeded — LLM analysis skipped)"
+    except Exception as exc:
+        logger.warning("LLM analysis failed for %s: %s", url, exc)
+        result["llm_analysis"] = ""
+
+    gaps = _detect_gaps_from_text(combined_text, source_label)
+    result["detected_gaps"] = [
+        {"name": g.name, "reason": g.reason, "priority": g.priority}
+        for g in gaps
+    ]
+
+    if gaps:
+        logger.info("Detected %d gap(s) from image %s: %s", len(gaps), url, [g.name for g in gaps])
+
     return result
 
 
@@ -189,30 +160,33 @@ def process_discord_attachment(
 ) -> dict:
     """
     Full pipeline for a Discord image attachment: download → OCR → analyse → notify.
-
-    Returns the analysis result dict.
+    Stores analysis in conversational memory and sends a Discord notification.
     """
-    source_label = f"discord_user_{user_id}" if user_id else "discord_attachment"
-    result = analyse_image_url(url, user_context=user_context, source_label=source_label)
+    result = analyse_image_url(url, user_context=user_context, source_label=f"discord:{user_id or 'unknown'}")
 
-    logger.info(
-        "Image analysis complete for %s — %d gap(s) detected.",
-        url,
-        len(result["gaps"]),
-    )
+    summary_parts = [f"**Image Analysis** for `{url}`"]
+    if result["ocr_text"].strip():
+        excerpt = result["ocr_text"][:300].replace("\n", " ")
+        summary_parts.append(f"OCR text: {excerpt}{'...' if len(result['ocr_text']) > 300 else ''}")
+    if result["llm_analysis"].strip():
+        summary_parts.append(f"Analysis: {result['llm_analysis'][:400]}")
+    if result["detected_gaps"]:
+        gap_names = ", ".join(g["name"] for g in result["detected_gaps"])
+        summary_parts.append(f"⚠️ Capability gaps detected: {gap_names}")
 
-    if result["gaps"]:
-        for gap in result["gaps"]:
-            logger.info("Gap detected from image: [%s] %s", gap.name, gap.reason)
+    summary = "\n".join(summary_parts)
 
-    if notify_result and result["analysis"]:
-        summary = result["analysis"][:800]
-        gap_count = len(result["gaps"])
-        message = (
-            f"📷 **Image Analysis Result**\n{summary}"
-            + (f"\n\n⚠️ {gap_count} potential gap(s) detected." if gap_count else "")
-        )
-        notify(message)
+    if user_id:
+        try:
+            conversational_memory.store_message(user_id, summary, role="assistant")
+        except Exception as exc:
+            logger.warning("Failed to store analysis in conversational memory: %s", exc)
+
+    if notify_result:
+        try:
+            discord_notifier.notify(summary)
+        except Exception as exc:
+            logger.warning("Discord notification failed: %s", exc)
 
     return result
 
@@ -223,52 +197,52 @@ def process_multiple_attachments(
     user_context: str = "",
     notify_result: bool = True,
 ) -> list[dict]:
-    """
-    Process a list of image attachment URLs from a Discord message.
-
-    Returns a list of analysis result dicts.
-    """
+    """Process a list of image attachment URLs from a Discord message."""
     results = []
     for url in urls:
-        result = process_discord_attachment(
-            url=url,
-            user_id=user_id,
-            user_context=user_context,
-            notify_result=notify_result,
-        )
-        results.append(result)
+        try:
+            result = process_discord_attachment(
+                url,
+                user_id=user_id,
+                user_context=user_context,
+                notify_result=False,
+            )
+            results.append(result)
+        except Exception as exc:
+            logger.error("Failed to process attachment %s: %s", url, exc)
+            results.append({"url": url, "error": str(exc), "detected_gaps": []})
+
+    if notify_result and results:
+        batch_summary = summarise_image_batch(results)
+        try:
+            discord_notifier.notify(batch_summary)
+        except Exception as exc:
+            logger.warning("Batch Discord notification failed: %s", exc)
+
     return results
 
 
-def extract_ocr_text_from_url(url: str) -> str:
-    """
-    Lightweight helper: download an image and return only the OCR text.
-    """
-    image_bytes = _download_image(url)
-    if image_bytes is None:
-        return ""
-    return _ocr_image(image_bytes)
-
-
 def summarise_image_batch(results: list[dict]) -> str:
-    """
-    Produce a combined summary string from a list of analysis result dicts.
-    """
+    """Produce a combined summary string from a list of analysis result dicts."""
     if not results:
-        return "No images were analysed."
+        return "No images were processed."
 
-    lines = [f"Analysed {len(results)} image(s):\n"]
-    all_gaps: list[Gap] = []
+    lines = [f"**Batch Image Analysis** — {len(results)} image(s) processed"]
+    all_gaps: list[str] = []
 
-    for idx, res in enumerate(results, start=1):
-        short_analysis = res.get("analysis", "")[:300]
-        lines.append(f"**Image {idx}** ({res.get('url', 'unknown')}):")
-        lines.append(short_analysis or "(no analysis)")
-        all_gaps.extend(res.get("gaps", []))
+    for i, r in enumerate(results, 1):
+        url_short = r.get("url", "unknown")[-60:]
+        error = r.get("error")
+        if error:
+            lines.append(f"{i}. `{url_short}` — ❌ Error: {error}")
+            continue
+        analysis_excerpt = (r.get("llm_analysis") or r.get("ocr_text") or "")[:200]
+        lines.append(f"{i}. `{url_short}` — {analysis_excerpt}")
+        for gap in r.get("detected_gaps", []):
+            all_gaps.append(gap["name"])
 
     if all_gaps:
-        lines.append(f"\n⚠️ Total gaps detected: {len(all_gaps)}")
-        for gap in all_gaps[:5]:
-            lines.append(f"  • {gap.name}: {gap.reason[:80]}")
+        unique_gaps = list(dict.fromkeys(all_gaps))
+        lines.append(f"\n⚠️ Capability gaps detected across batch: {', '.join(unique_gaps)}")
 
     return "\n".join(lines)
