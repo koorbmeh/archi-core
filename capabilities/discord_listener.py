@@ -31,8 +31,15 @@ INTENT_SYSTEM = (
     "and classify it as one of:\n"
     "  - TRIGGER_GENERATION: Jesse wants Archi to run the generation loop\n"
     "  - DIRECT_INSTRUCTION: Jesse is giving a specific instruction (extract it)\n"
-    "  - INFORMATIONAL: Jesse is sharing information, no action needed\n\n"
+    "  - CONVERSATIONAL: greetings, observations, general chat that deserves a friendly reply\n"
+    "  - INFORMATIONAL: Jesse is sharing data or context, no reply needed\n\n"
     'Respond with ONLY a JSON object: {"intent": "<INTENT>", "instruction": "<text or empty>"}'
+)
+
+REPLY_SYSTEM = (
+    "You are Archi, an autonomous self-developing AI agent. Jesse is your creator. "
+    "Reply briefly and naturally to his message. Be friendly but not sycophantic. "
+    "Keep replies under 2 sentences. You are a capable agent, not a chatbot."
 )
 
 
@@ -103,12 +110,33 @@ async def _handle_message(
     elif intent == "DIRECT_INSTRUCTION":
         logger.info("Intent=DIRECT_INSTRUCTION: %s", instruction)
         discord_notify(f"Acknowledged instruction: {instruction[:200]}")
-        # Direct instructions trigger a cycle — future: richer dispatch
         result = run_cycle(repo_path=repo_path, registry=registry)
         _notify_cycle_outcome(result)
+    elif intent == "CONVERSATIONAL":
+        logger.info("Intent=CONVERSATIONAL: generating reply.")
+        _reply_conversational(content)
     else:
         logger.info("Intent=INFORMATIONAL (no action needed).")
-        discord_notify("Got it. No action needed on my end.")
+        discord_notify("Noted.")
+
+
+def _reply_conversational(content: str) -> None:
+    """Generate a contextual reply to a conversational message from Jesse."""
+    try:
+        response = call_model(
+            prompt=f"Jesse says: {content}",
+            system=REPLY_SYSTEM,
+        )
+        reply = response.text.strip()
+        if reply:
+            discord_notify(reply)
+        else:
+            discord_notify("Hey Jesse.")
+    except BudgetExceededError:
+        discord_notify("I'm here, but budget's tight right now.")
+    except Exception as exc:
+        logger.error("Error generating conversational reply: %s", exc)
+        discord_notify("I'm here.")
 
 
 def _notify_cycle_outcome(result: CycleResult) -> None:

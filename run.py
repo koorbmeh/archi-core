@@ -358,7 +358,17 @@ def main() -> int:
             break
 
     logger.info("Final session cost: $%.4f", get_session_cost())
+    _cleanup_sessions()
     return 0
+
+
+def _cleanup_sessions() -> None:
+    """Close any open aiohttp sessions (discord_notifier, etc.) on exit."""
+    try:
+        from capabilities.discord_notifier import shutdown as _discord_shutdown
+        asyncio.run(_discord_shutdown())
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
