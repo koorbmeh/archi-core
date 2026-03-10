@@ -65,6 +65,12 @@ _TRIGGER_PATTERNS = [
     re.compile(r"\bgenerate\b", re.I),
 ]
 
+_PREREQ_CONFIRM_PATTERNS = [
+    re.compile(r"^\s*(done|ready|installed|set\s*up|confirmed|go\s*ahead|all\s*set)\s*[.!]?\s*$", re.I),
+    re.compile(r"\b(done|ready|installed|set\s*up|confirmed)\b.*\bprereq", re.I),
+    re.compile(r"\bprereq.*\b(done|ready|installed|set\s*up|confirmed)\b", re.I),
+]
+
 _RECALL_PATTERNS = [
     re.compile(r"\brecall\b.*\b(at|around|on|from)\b", re.I),
     re.compile(r"\bwhat did (i|you) say\b.*\b(at|around|on)\b", re.I),
@@ -83,10 +89,37 @@ _TIMESTAMP_EXTRACTION = re.compile(
 )
 
 
+def _has_pending_prerequisites() -> bool:
+    """Check if there are any prerequisite_pending entries without confirmation."""
+    if not DEFAULT_OP_LOG.exists():
+        return False
+    pending: set[str] = set()
+    confirmed: set[str] = set()
+    try:
+        for line in DEFAULT_OP_LOG.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            evt = entry.get("event", "")
+            cap = entry.get("missing_capability", "")
+            if evt == "prerequisite_pending" and cap:
+                pending.add(cap)
+                confirmed.discard(cap)
+            elif evt == "prerequisite_confirmed" and cap:
+                confirmed.add(cap)
+    except OSError:
+        return False
+    return bool(pending - confirmed)
+
+
 def _classify_intent(content: str, attachment_urls: list) -> str:
     """Classify user intent from message content and attachments.
 
-    Returns one of: IMAGE, RECALL, GAP, TRIGGER, CONVERSATION.
+    Returns one of: IMAGE, RECALL, GAP, TRIGGER, PREREQ_CONFIRM, CONVERSATION.
     """
     if attachment_urls:
         return "IMAGE"
@@ -96,6 +129,11 @@ def _classify_intent(content: str, attachment_urls: list) -> str:
     # Check recall intent first (most specific)
     if any(p.search(text) for p in _RECALL_PATTERNS):
         return "RECALL"
+
+    # Check for prerequisite confirmation (only if there are pending prereqs)
+    if any(p.search(text) for p in _PREREQ_CONFIRM_PATTERNS):
+        if _has_pending_prerequisites():
+            return "PREREQ_CONFIRM"
 
     # Check for gap/capability request
     if any(p.search(text) for p in _GAP_PATTERNS):
@@ -233,6 +271,64 @@ async def _handle_image(user_id: str, content: str, attachment_urls: list) -> No
         await notify_async("I had trouble analyzing your image. I'll look into what went wrong.")
 
 
+async def _handle_prereq_confirm(user_id: str, content: str) -> None:
+    """Jesse confirmed that prerequisites are in place — unblock pending gaps."""
+    store_message(user_id, content, role="user")
+
+    # Find all pending (unconfirmed) prerequisite gaps and confirm them
+    confirmed_gaps: list[str] = []
+    if DEFAULT_OP_LOG.exists():
+        pending: dict[str, str] = {}  # gap_name → detail
+        confirmed_set: set[str] = set()
+        try:
+            for line in DEFAULT_OP_LOG.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                evt = entry.get("event", "")
+                cap = entry.get("missing_capability", "")
+                if evt == "prerequisite_pending" and cap:
+                    pending[cap] = entry.get("detail", "")
+                    confirmed_set.discard(cap)
+                elif evt == "prerequisite_confirmed" and cap:
+                    confirmed_set.add(cap)
+        except OSError:
+            pass
+
+        waiting = set(pending.keys()) - confirmed_set
+        for gap_name in waiting:
+            entry = {
+                "event": "prerequisite_confirmed",
+                "success": True,
+                "missing_capability": gap_name,
+                "detail": f"Jesse confirmed prerequisites are ready.",
+            }
+            try:
+                with DEFAULT_OP_LOG.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry) + "\n")
+                confirmed_gaps.append(gap_name)
+                logger.info("Prerequisite confirmed for gap: %s", gap_name)
+            except OSError as exc:
+                logger.error("Failed to log prerequisite confirmation: %s", exc)
+
+    if confirmed_gaps:
+        names = ", ".join(f"**{g}**" for g in confirmed_gaps)
+        reply = (
+            f"Got it — prerequisites confirmed for {names}. "
+            f"I'll build {'them' if len(confirmed_gaps) > 1 else 'it'} "
+            f"in the next generation cycle."
+        )
+    else:
+        reply = "I don't have any pending prerequisites right now, but noted!"
+
+    await notify_async(reply)
+    store_message(user_id, reply, role="assistant")
+
+
 async def _handle_trigger(user_id: str, content: str) -> None:
     """Acknowledge a generation cycle trigger request."""
     store_message(user_id, content, role="user")
@@ -342,6 +438,8 @@ async def process_one(repo_path: str, registry: CapabilityRegistry) -> bool:
             await _handle_recall(user_id, content)
         elif intent == "GAP":
             await _handle_gap(user_id, content)
+        elif intent == "PREREQ_CONFIRM":
+            await _handle_prereq_confirm(user_id, content)
         elif intent == "TRIGGER":
             await _handle_trigger(user_id, content)
         else:

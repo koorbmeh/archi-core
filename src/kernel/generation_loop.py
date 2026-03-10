@@ -67,7 +67,18 @@ PLAN_SYSTEM = (
     "You are Archi's planning module. Given a capability gap, output ONLY a JSON "
     'object with keys: "file_path" (relative path), "description" (one sentence), '
     '"dependencies" (list of capability names, may be empty), "approach" (2-3 '
-    "sentence plan). No markdown fences.\n\n"
+    'sentence plan), "prerequisites" (list of strings, may be empty). '
+    "No markdown fences.\n\n"
+    "PREREQUISITES RULE: If the capability requires ANY of the following to "
+    "function at runtime, list them in the prerequisites field:\n"
+    "  - pip/npm packages not in the standard library (e.g. 'pip install gspread google-auth')\n"
+    "  - Environment variables or API keys (e.g. 'GOOGLE_SHEETS_CREDENTIALS env var "
+    "pointing to a service account JSON file')\n"
+    "  - External service accounts or OAuth tokens\n"
+    "  - Files, databases, or hardware that must exist on the host\n"
+    "If the capability only uses stdlib + packages already imported elsewhere "
+    "in the project (json, pathlib, logging, etc.) and existing internal APIs, "
+    "set prerequisites to an empty list [].\n\n"
     "PATH RULE: All new capability files MUST be created in `capabilities/` "
     "(e.g. `capabilities/my_capability.py`). NEVER create files under `src/` "
     "except for kernel modules under `src/kernel/`. The `src/capabilities/` "
@@ -151,6 +162,58 @@ def _log_operation(event: str, success: bool, detail: str = "",
         logger.error("Failed to write operation log: %s", exc)
 
 
+def _prerequisites_confirmed(gap_name: str, log_path: Path) -> bool:
+    """Check whether Jesse has confirmed prerequisites for a given gap.
+
+    Scans the operation log for ``prerequisite_confirmed`` for *gap_name*.
+    Returns True ONLY if a confirmation entry exists (and is not superseded
+    by a newer pending entry).  Returns False otherwise — including when no
+    prerequisite entries exist at all (first encounter).
+    """
+    if not log_path.exists():
+        return False
+    confirmed = False
+    try:
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            event = entry.get("event", "")
+            cap = entry.get("missing_capability", "")
+            if event == "prerequisite_pending" and cap == gap_name:
+                confirmed = False  # newer pending resets
+            elif event == "prerequisite_confirmed" and cap == gap_name:
+                confirmed = True
+    except OSError:
+        return False
+    return confirmed
+
+
+def _prerequisite_already_asked(gap_name: str, log_path: Path) -> bool:
+    """Return True if we've already logged prerequisite_pending for this gap."""
+    if not log_path.exists():
+        return False
+    try:
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (entry.get("event") == "prerequisite_pending"
+                    and entry.get("missing_capability") == gap_name):
+                return True
+    except OSError:
+        pass
+    return False
+
+
 def _parse_plan(response: ModelResponse) -> Optional[dict]:
     """Extract the JSON plan from the model response."""
     text = response.text.strip()
@@ -167,6 +230,7 @@ def _parse_plan(response: ModelResponse) -> Optional[dict]:
     if not required.issubset(plan.keys()):
         return None
     plan.setdefault("dependencies", [])
+    plan.setdefault("prerequisites", [])
     return plan
 
 
@@ -264,6 +328,39 @@ def run_cycle(
 
     logger.info("Plan: %s → %s", plan["file_path"], plan["description"])
     _log_operation("plan_created", True, detail=plan["file_path"], log_path=op_log)
+
+    # --- Phase 2b: Check prerequisites ---
+    # If the plan requires external setup (packages, API keys, credentials),
+    # ask Jesse to confirm they're in place before generating code.
+    prerequisites = plan.get("prerequisites", [])
+    if prerequisites and not _prerequisites_confirmed(gap.name, op_log):
+        # Only DM Jesse if we haven't already asked (avoid spamming).
+        already_asked = _prerequisite_already_asked(gap.name, op_log)
+        if not already_asked:
+            prereq_text = "\n".join(f"  • {p}" for p in prerequisites)
+            dm_msg = (
+                f"I want to build **{gap.name}** ({plan['description']}), "
+                f"but I need a few things set up first:\n{prereq_text}\n\n"
+                f"Once you've done these, reply with **ready** or **done** "
+                f"and I'll continue building it."
+            )
+            _log_operation(
+                "prerequisite_pending", True,
+                detail=json.dumps({"gap": gap.name, "prerequisites": prerequisites}),
+                missing_cap=gap.name,
+                log_path=op_log,
+            )
+            try:
+                _discord_notify(dm_msg)
+            except Exception as exc:
+                logger.debug("Prerequisite DM failed (non-fatal): %s", exc)
+        logger.info(
+            "Skipping %s — waiting for Jesse to confirm prerequisites.", gap.name,
+        )
+        return CycleResult(
+            phase_reached="plan", gap=gap, plan=plan,
+            error=f"Waiting for Jesse to confirm prerequisites for {gap.name}",
+        )
 
     # --- Phase 3: Generate Code (pre-flight gate check) ---
     gate_ctx = ActionContext(

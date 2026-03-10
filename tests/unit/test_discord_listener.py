@@ -154,3 +154,88 @@ class TestNoBuildNotificationInConversation:
 
         assert len(sent_messages) == 1
         assert sent_messages[0] == "Good morning Jesse! How can I help?"
+
+
+# --- Prerequisite confirmation ---
+
+class TestPrereqConfirmIntent:
+    """The listener should detect prerequisite confirmation messages."""
+
+    def test_done_triggers_prereq_confirm(self):
+        from capabilities.discord_listener import _classify_intent, _has_pending_prerequisites
+        with patch("capabilities.discord_listener._has_pending_prerequisites", return_value=True):
+            assert _classify_intent("done", []) == "PREREQ_CONFIRM"
+
+    def test_ready_triggers_prereq_confirm(self):
+        from capabilities.discord_listener import _classify_intent
+        with patch("capabilities.discord_listener._has_pending_prerequisites", return_value=True):
+            assert _classify_intent("Ready!", []) == "PREREQ_CONFIRM"
+
+    def test_installed_triggers_prereq_confirm(self):
+        from capabilities.discord_listener import _classify_intent
+        with patch("capabilities.discord_listener._has_pending_prerequisites", return_value=True):
+            assert _classify_intent("installed", []) == "PREREQ_CONFIRM"
+
+    def test_done_without_pending_is_conversation(self):
+        from capabilities.discord_listener import _classify_intent
+        with patch("capabilities.discord_listener._has_pending_prerequisites", return_value=False):
+            assert _classify_intent("done", []) == "CONVERSATION"
+
+    def test_normal_message_not_prereq(self):
+        from capabilities.discord_listener import _classify_intent
+        with patch("capabilities.discord_listener._has_pending_prerequisites", return_value=True):
+            assert _classify_intent("How's the weather?", []) == "CONVERSATION"
+
+
+class TestPrereqConfirmHandler:
+    """The handler should log prerequisite_confirmed entries."""
+
+    def test_confirms_pending_gaps(self, tmp_path):
+        from capabilities.discord_listener import _handle_prereq_confirm
+
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "prerequisite_pending", "success": True,
+             "missing_capability": "sheets_cap",
+             "detail": '{"gap":"sheets_cap","prerequisites":["pip install gspread"]}'},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
+
+        sent_messages = []
+
+        async def mock_notify(msg):
+            sent_messages.append(msg)
+
+        with patch("capabilities.discord_listener.DEFAULT_OP_LOG", log), \
+             patch("capabilities.discord_listener.store_message"), \
+             patch("capabilities.discord_listener.notify_async", side_effect=mock_notify):
+            _run_async(_handle_prereq_confirm("user123", "done"))
+
+        # Should have sent a confirmation message
+        assert len(sent_messages) == 1
+        assert "sheets_cap" in sent_messages[0]
+        # Should have logged prerequisite_confirmed
+        log_lines = log.read_text().strip().splitlines()
+        confirmed = [json.loads(l) for l in log_lines
+                     if '"prerequisite_confirmed"' in l]
+        assert len(confirmed) == 1
+        assert confirmed[0]["missing_capability"] == "sheets_cap"
+
+    def test_no_pending_gives_friendly_message(self, tmp_path):
+        from capabilities.discord_listener import _handle_prereq_confirm
+
+        log = tmp_path / "ops.jsonl"
+        log.write_text("")
+
+        sent_messages = []
+
+        async def mock_notify(msg):
+            sent_messages.append(msg)
+
+        with patch("capabilities.discord_listener.DEFAULT_OP_LOG", log), \
+             patch("capabilities.discord_listener.store_message"), \
+             patch("capabilities.discord_listener.notify_async", side_effect=mock_notify):
+            _run_async(_handle_prereq_confirm("user123", "done"))
+
+        assert len(sent_messages) == 1
+        assert "don't have any pending" in sent_messages[0].lower()

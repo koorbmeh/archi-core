@@ -189,3 +189,64 @@ class TestEnvironmentGaps:
         env_gaps = [g for g in gaps if g.name.startswith("env_")]
         cap_gaps = [g for g in gaps if g.name == "user_communication"]
         assert env_gaps[0].priority >= cap_gaps[0].priority
+
+
+class TestPrerequisiteSuppression:
+    """Gaps with pending prerequisites (unconfirmed) should be suppressed."""
+
+    def test_pending_prereq_suppresses_gap(self, tmp_path):
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description=f"{name} cap"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "integrate_failed", "success": False,
+             "missing_capability": "google_sheets_analyzer"},
+            {"event": "prerequisite_pending", "success": True,
+             "missing_capability": "google_sheets_analyzer",
+             "detail": '{"gap":"google_sheets_analyzer","prerequisites":["pip install gspread"]}'},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "google_sheets_analyzer" not in gap_names
+
+    def test_confirmed_prereq_allows_gap(self, tmp_path):
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description=f"{name} cap"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "integrate_failed", "success": False,
+             "missing_capability": "google_sheets_analyzer"},
+            {"event": "prerequisite_pending", "success": True,
+             "missing_capability": "google_sheets_analyzer",
+             "detail": "{}"},
+            {"event": "prerequisite_confirmed", "success": True,
+             "missing_capability": "google_sheets_analyzer",
+             "detail": "Jesse confirmed."},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "google_sheets_analyzer" in gap_names
+
+    def test_unrelated_gap_not_affected(self, tmp_path):
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description=f"{name} cap"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "integrate_failed", "success": False,
+             "missing_capability": "google_sheets_analyzer"},
+            {"event": "prerequisite_pending", "success": True,
+             "missing_capability": "google_sheets_analyzer",
+             "detail": "{}"},
+            {"event": "integrate_failed", "success": False,
+             "missing_capability": "other_tool"},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "google_sheets_analyzer" not in gap_names
+        assert "other_tool" in gap_names

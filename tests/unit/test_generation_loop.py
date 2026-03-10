@@ -13,6 +13,7 @@ from src.kernel.generation_loop import (
     CycleResult,
     _log_operation,
     _parse_plan,
+    _prerequisites_confirmed,
     run_cycle,
 )
 from src.kernel.model_interface import BudgetExceededError, ModelResponse
@@ -610,3 +611,160 @@ class TestEnvironmentFailureRouting:
         ]
         assert len(env_entries) >= 1
         assert env_entries[-1]["missing_capability"].startswith("env_")
+
+
+class TestPrerequisitesConfirmed:
+    """Tests for the _prerequisites_confirmed helper."""
+
+    def test_no_log_file_returns_false(self, tmp_path):
+        """No log file means no confirmation exists."""
+        assert _prerequisites_confirmed("foo", tmp_path / "nope.jsonl") is False
+
+    def test_no_entries_returns_false(self, tmp_path):
+        """Log exists but no prerequisite entries → not confirmed."""
+        log = tmp_path / "ops.jsonl"
+        _log_operation("some_event", False, missing_cap="foo", log_path=log)
+        assert _prerequisites_confirmed("foo", log) is False
+
+    def test_pending_without_confirmed_returns_false(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entry = {"event": "prerequisite_pending", "success": True,
+                 "missing_capability": "google_sheets_analyzer",
+                 "detail": '{"gap": "google_sheets_analyzer", "prerequisites": ["pip install gspread"]}'}
+        log.write_text(json.dumps(entry) + "\n")
+        assert _prerequisites_confirmed("google_sheets_analyzer", log) is False
+
+    def test_pending_then_confirmed_returns_true(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        lines = [
+            json.dumps({"event": "prerequisite_pending", "success": True,
+                        "missing_capability": "sheets", "detail": "{}"}),
+            json.dumps({"event": "prerequisite_confirmed", "success": True,
+                        "missing_capability": "sheets", "detail": "Jesse confirmed."}),
+        ]
+        log.write_text("\n".join(lines) + "\n")
+        assert _prerequisites_confirmed("sheets", log) is True
+
+    def test_different_gap_not_affected(self, tmp_path):
+        log = tmp_path / "ops.jsonl"
+        entry = {"event": "prerequisite_pending", "success": True,
+                 "missing_capability": "other_cap", "detail": "{}"}
+        log.write_text(json.dumps(entry) + "\n")
+        # "foo" has no confirmation, so it should return False
+        assert _prerequisites_confirmed("foo", log) is False
+
+    def test_newer_pending_resets_confirmation(self, tmp_path):
+        """If a new pending is logged after confirmation, it should be False."""
+        log = tmp_path / "ops.jsonl"
+        lines = [
+            json.dumps({"event": "prerequisite_pending", "success": True,
+                        "missing_capability": "x", "detail": "{}"}),
+            json.dumps({"event": "prerequisite_confirmed", "success": True,
+                        "missing_capability": "x", "detail": "ok"}),
+            json.dumps({"event": "prerequisite_pending", "success": True,
+                        "missing_capability": "x", "detail": "{}"}),
+        ]
+        log.write_text("\n".join(lines) + "\n")
+        assert _prerequisites_confirmed("x", log) is False
+
+
+class TestPrerequisiteSkipsGeneration:
+    """When a plan has prerequisites, run_cycle should skip and DM Jesse."""
+
+    def test_cycle_skips_with_prerequisites(self, tmp_path):
+        from unittest.mock import patch as mock_patch
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        plan_with_prereqs = json.dumps({
+            "file_path": "capabilities/google_sheets_analyzer.py",
+            "description": "Reads Google Sheets for Jesse.",
+            "dependencies": [],
+            "approach": "Use gspread + google-auth.",
+            "prerequisites": ["pip install gspread google-auth",
+                               "GOOGLE_SHEETS_CREDENTIALS env var"],
+        })
+
+        def plan_fn(prompt, system=None):
+            return _make_response(plan_with_prereqs)
+
+        def gen_fn(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        notify_calls = []
+
+        with mock_patch("src.kernel.generation_loop._discord_notify",
+                        side_effect=lambda msg: notify_calls.append(msg)):
+            result = run_cycle(
+                repo_path="/fake", registry=registry,
+                log_path=op_log,
+                plan_fn=plan_fn, generate_fn=gen_fn,
+            )
+
+        assert result.phase_reached == "plan"
+        assert "prerequisites" in (result.error or "").lower()
+        # Should have DM'd Jesse
+        assert len(notify_calls) == 1
+        assert "gspread" in notify_calls[0]
+        assert "ready" in notify_calls[0].lower() or "done" in notify_calls[0].lower()
+        # Should have logged prerequisite_pending
+        log_lines = op_log.read_text().strip().splitlines()
+        pending = [json.loads(l) for l in log_lines
+                   if '"prerequisite_pending"' in l]
+        assert len(pending) == 1
+
+    def test_cycle_proceeds_after_confirmation(self, tmp_path):
+        """After Jesse confirms, the same plan should proceed past prerequisites."""
+        from unittest.mock import patch as mock_patch
+        import subprocess
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "capabilities").mkdir(parents=True)
+        (repo / "tests").mkdir()
+        (repo / "tests" / "test_ok.py").write_text("def test_ok():\n    assert True\n")
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.email", "t@t.com"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"],
+                       cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=str(repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"],
+                       cwd=str(repo), capture_output=True)
+
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        # Pre-seed with pending + confirmed
+        lines = [
+            json.dumps({"event": "prerequisite_pending", "success": True,
+                        "missing_capability": "self_modifier",
+                        "detail": '{"gap":"self_modifier","prerequisites":["pip install x"]}'}),
+            json.dumps({"event": "prerequisite_confirmed", "success": True,
+                        "missing_capability": "self_modifier",
+                        "detail": "Jesse confirmed."}),
+        ]
+        op_log.write_text("\n".join(lines) + "\n")
+
+        plan_with_prereqs = json.dumps({
+            "file_path": "capabilities/sheets.py",
+            "description": "Reads sheets.",
+            "dependencies": [],
+            "approach": "Use gspread.",
+            "prerequisites": ["pip install gspread"],
+        })
+
+        def plan_fn(prompt, system=None):
+            return _make_response(plan_with_prereqs)
+
+        def gen_fn(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        result = run_cycle(
+            repo_path=str(repo), registry=registry,
+            log_path=op_log,
+            plan_fn=plan_fn, generate_fn=gen_fn,
+        )
+        # Should have proceeded past plan phase (into generate or integrate)
+        assert result.phase_reached == "integrate"

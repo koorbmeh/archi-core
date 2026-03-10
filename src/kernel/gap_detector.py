@@ -97,6 +97,10 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     # Track gaps that were resolved after Jesse signaled them, so we don't
     # keep rebuilding capabilities that have already been addressed.
     resolved_jesse_gaps: set[str] = set()
+    # Track prerequisites: pending means Jesse was asked; confirmed means he replied.
+    # A gap with pending but no confirmed should be suppressed.
+    prereq_pending: set[str] = set()
+    prereq_confirmed: set[str] = set()
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -105,6 +109,16 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            # Track prerequisite states (both are success=True entries)
+            evt = entry.get("event", "")
+            cap = entry.get("missing_capability", "")
+            if evt == "prerequisite_pending" and cap:
+                prereq_pending.add(cap)
+                prereq_confirmed.discard(cap)  # newer pending resets
+                continue
+            if evt == "prerequisite_confirmed" and cap:
+                prereq_confirmed.add(cap)
                 continue
             # Track Jesse-gap resolutions (written after successful builds)
             if (entry.get("success")
@@ -145,6 +159,15 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     # Remove gaps that were resolved after Jesse signaled them
     for name in list(gaps):
         if name in resolved_jesse_gaps:
+            del gaps[name]
+    # Suppress gaps waiting for prerequisite confirmation from Jesse
+    waiting_for_prereqs = prereq_pending - prereq_confirmed
+    for name in list(gaps):
+        if name in waiting_for_prereqs:
+            logger.debug(
+                "Suppressing gap '%s' — waiting for Jesse to confirm prerequisites.",
+                name,
+            )
             del gaps[name]
     return list(gaps.values())
 
