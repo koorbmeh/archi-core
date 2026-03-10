@@ -312,10 +312,10 @@ def run_cycle(
             "LOOP GUARD: Refusing to plan '%s' — prefix-doubling loop detected.",
             gap.name,
         )
+        # Mark as permanently suppressed so gap_detector stops surfacing it.
         _log_operation(
-            "prefix_loop_blocked", False,
-            detail=f"Blocked prefix-doubling gap: {gap.name}",
-            log_path=op_log,
+            "gap_permanently_suppressed", True,
+            detail=gap.name, log_path=op_log,
         )
         return CycleResult(phase_reached="plan", gap=gap,
                            error=f"Blocked prefix-doubling gap: {gap.name}")

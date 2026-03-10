@@ -250,3 +250,348 @@
 {"event": "cycle_no_gaps", "success": true}
 {"event": "gap_signal_from_discord_dm", "success": false, "missing_capability": "message_recall_by_timestamp", "detail": "Access and retrieve specific messages from conversation history using exact timestamps like 9:48 PM."}
 {"event": "self_evaluation_scheduled", "success": false, "missing_capability": "overnight_self_improvement", "detail": "Jesse is going to sleep. Archi should spend tonight reflecting on what it has built today and improving itself without being prompted. Questions to consider: Which capabilities were built but never successfully invoked by Jesse? Which capabilities exist in the registry but are not wired into any active pathway? What does Jesse actually need that Archi cannot currently do? Review today's conversation history \u2014 what patterns emerge about Jesse's goals, frustrations, and what would make his life genuinely better? Build toward those things. When Jesse wakes up, Archi should be meaningfully more capable and have a summary ready of what it worked on overnight. Orient everything toward Jesse's six dimensions: Health, Wealth, Happiness, Agency, Capability, Synthesis."}
+{"event": "gap_selected", "success": true, "detail": "message_recall_by_timestamp"}
+{"event": "plan_created", "success": true, "detail": "capabilities/message_recall_by_timestamp.py"}
+{"event": "code_generated", "success": true, "detail": "4212 chars"}
+{"event": "capability_integrated", "success": true, "detail": "message_recall_by_timestamp"}
+{"event": "jesse_gap_resolved", "success": true, "detail": "message_recall_by_timestamp"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'message_recall_by_timestamp' (capabilities/message_recall_by_timestamp.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: The fix MUST modify an existing entry-point file such as capabilities/discord_listener.py or run.py to import and invoke this capability. Do NOT create a new wire_X.py capability file \u2014 that will also be unwired and cause an infinite loop. The plan's file_path must be an EXISTING file, not a new file.", "missing_capability": "wire_message_recall_by_timestamp"}
+{"event": "gap_selected", "success": true, "detail": "overnight_self_improvement"}
+{"event": "plan_created", "success": true, "detail": "capabilities/overnight_self_improvement.py"}
+{"event": "code_generated", "success": true, "detail": "11570 chars"}
+{"event": "capability_integrated", "success": true, "detail": "overnight_self_improvement"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'overnight_self_improvement' (capabilities/overnight_self_improvement.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: The fix MUST modify an existing entry-point file such as capabilities/discord_listener.py or run.py to import and invoke this capability. Do NOT create a new wire_X.py capability file \u2014 that will also be unwired and cause an infinite loop. The plan's file_path must be an EXISTING file, not a new file.", "missing_capability": "wire_overnight_self_improvement"}
+{"event": "gap_selected", "success": true, "detail": "wire_message_recall_by_timestamp"}
+{"event": "plan_created", "success": true, "detail": "capabilities/discord_listener.py"}
+{"event": "code_generated", "success": true, "detail": "5696 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_message_recall_by_timestamp"}
+{"event": "gap_selected", "success": true, "detail": "wire_overnight_self_improvement"}
+{"event": "plan_created", "success": true, "detail": "run.py"}
+{"event": "code_generated", "success": true, "detail": "2491 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_overnight_self_improvement"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Health] Jesse has no automated system for tracking essential health metrics like sleep, exercise, and nutrition, leading to potential neglect of physical well-being amid his busy life.\nRuns on a daily schedule via the event loop to send a Discord DM prompting Jesse for metrics such as sleep hours, steps/exercise, water intake, and subjective energy levels. Stores data persistently in a simple database or JSON file, computes trends over time, and delivers weekly summaries with actionable insights or alerts for poor patterns. Integrates with conversational_memory to contextualize health data with daily activities and suggests optimizations based on basic rules or simple ML correlations.", "missing_capability": "daily_health_tracker", "timestamp": 1773142558.3793373}
+{"event": "gap_selected", "success": true, "detail": "daily_health_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_health_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "6266 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_health_tracker"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_health_tracker' (capabilities/daily_health_tracker.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_health_tracker.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_health_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_health_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_daily_health_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1410 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_daily_health_tracker"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Wealth] Jesse lacks any financial tracking capabilities, making it impossible to monitor spending, savings, or net worth progress essential for building wealth.\nImplements daily Discord DM prompts for key wealth metrics like daily expenses, income, investments, and net worth estimates, parsing responses with natural language understanding. Stores data persistently alongside health metrics for trend analysis. Generates weekly summaries and alerts for overspending or goal deviations, suggesting optimizations.", "missing_capability": "daily_wealth_tracker", "timestamp": 1773143484.2506855}
+{"event": "gap_selected", "success": true, "detail": "daily_wealth_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_wealth_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "6737 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_wealth_tracker"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_wealth_tracker' (capabilities/daily_wealth_tracker.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_wealth_tracker.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_wealth_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_wealth_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_wealth_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1261 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_daily_wealth_tracker"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Happiness] Jesse lacks a dedicated tracker for subjective well-being metrics like mood and gratitude, which are essential for cultivating sustained happiness.\nImplements daily Discord DM prompts for happiness metrics including mood rating (1-10), three gratitudes, social interactions, and stressors. Parses natural language responses using regex and simple NLP to extract and store structured data in a persistent database. Provides weekly summary reports via DM with trends, insights, and actionable suggestions like mindfulness exercises.", "missing_capability": "daily_happiness_tracker", "timestamp": 1773144381.0307984}
+{"event": "gap_selected", "success": true, "detail": "daily_happiness_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_happiness_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "8651 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_happiness_tracker"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_happiness_tracker' (capabilities/daily_happiness_tracker.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_happiness_tracker.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_happiness_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_happiness_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_happiness_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "3358 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_daily_happiness_tracker"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Synthesis] Jesse needs aggregated insights and trends from his daily Health, Wealth, and Happiness trackers to identify patterns and make informed decisions across dimensions.\nThe capability integrates into the event loop as a weekly task, queries stored data from daily trackers, computes metrics like averages, trends, variances, and cross-dimensional correlations. It generates a Discord DM with a formatted summary report including ASCII charts or generated images, key insights, and 2-3 actionable recommendations. It also flags anomalies or improvements needed to enhance overall life balance.", "missing_capability": "weekly_dimension_synthesis", "timestamp": 1773145353.0277588}
+{"event": "gap_selected", "success": true, "detail": "weekly_dimension_synthesis"}
+{"event": "plan_created", "success": true, "detail": "capabilities/weekly_dimension_synthesis.py"}
+{"event": "code_generated", "success": true, "detail": "8626 chars"}
+{"event": "capability_integrated", "success": true, "detail": "weekly_dimension_synthesis"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'weekly_dimension_synthesis' (capabilities/weekly_dimension_synthesis.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_weekly_dimension_synthesis.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_weekly_dimension_synthesis"}
+{"event": "gap_selected", "success": true, "detail": "wire_weekly_dimension_synthesis"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_weekly_dimension_synthesis.py"}
+{"event": "code_generated", "success": true, "detail": "1797 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_weekly_dimension_synthesis"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Agency] Jesse lacks dedicated tracking for his Agency dimension, which monitors autonomy, decision-making, and goal progress essential for personal empowerment.\nImplements daily Discord DM prompts for agency metrics including autonomy score (1-10), key decisions made that day, and progress on personal goals. Parses natural language responses to extract and store structured data persistently. Generates motivational insights or alerts if agency metrics trend low, integrating with existing synthesis capabilities.", "missing_capability": "daily_agency_tracker", "timestamp": 1773146259.0814958}
+{"event": "gap_selected", "success": true, "detail": "daily_agency_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_agency_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "7762 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_agency_tracker"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_agency_tracker' (capabilities/daily_agency_tracker.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_agency_tracker.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_agency_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_agency_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_agency_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1721 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_daily_agency_tracker"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Capability] Jesse lacks a daily tracker for his Capability dimension, preventing systematic monitoring of skill development, learning progress, and personal growth.\nImplements daily Discord DM prompts asking for capability metrics like hours studied/learned, new skills acquired, projects advanced, and a self-assessed capability score (1-10). Parses natural language responses to extract and store structured data persistently for trend analysis. Provides summarized weekly previews in daily prompts to encourage consistency and highlight progress gaps.", "missing_capability": "daily_capability_tracker", "timestamp": 1773147136.8552904}
+{"event": "gap_selected", "success": true, "detail": "daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_capability_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "7429 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_capability_tracker"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_capability_tracker' (capabilities/daily_capability_tracker.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_capability_tracker.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_capability_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_capability_tracker.py"}
+{"event": "generate_gate_blocked", "success": false, "detail": "Session ceiling $0.50 would be exceeded (current $0.4871 + $0.0200)."}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_capability_tracker.py"}
+{"event": "generate_gate_blocked", "success": false, "detail": "Session ceiling $0.50 would be exceeded (current $0.5043 + $0.0200)."}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_capability_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1797 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/wire_daily_capability_tracker.py \u2014 tests failed.", "missing_capability": "wire_daily_capability_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_capability_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1730 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/wire_daily_capability_tracker.py \u2014 tests failed.", "missing_capability": "wire_daily_capability_tracker"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_capability_tracker"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_daily_capability_tracker.py"}
+{"event": "code_generated", "success": true, "detail": "1427 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Rolled back capabilities/integrate_daily_capability_tracker.py \u2014 tests failed.", "missing_capability": "wire_daily_capability_tracker"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Synthesis] The existing weekly_dimension_synthesis only aggregates Health, Wealth, and Happiness data, leaving Agency and Capability unsynthesized and preventing a holistic view of Jesse's progress across all six dimensions.\nThis capability aggregates metrics from all daily trackers (Health, Wealth, Happiness, Agency, Capability) over the past week, computing trends, dimension scores, and cross-dimensional insights like how low agency impacts capability growth. It generates a comprehensive Discord DM report with text-based charts, summaries, potential imbalances, and prioritized action recommendations. Integrates with existing data storage from trackers and the event loop for weekly scheduling, building directly on the pattern of weekly_dimension_synthesis.", "missing_capability": "weekly_full_dimension_synthesis", "timestamp": 1773151025.760421}
+{"event": "gap_selected", "success": true, "detail": "weekly_full_dimension_synthesis"}
+{"event": "plan_created", "success": true, "detail": "capabilities/weekly_full_dimension_synthesis.py"}
+{"event": "code_generated", "success": true, "detail": "8475 chars"}
+{"event": "capability_integrated", "success": true, "detail": "weekly_full_dimension_synthesis"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'weekly_full_dimension_synthesis' (capabilities/weekly_full_dimension_synthesis.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_weekly_full_dimension_synthesis.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_weekly_full_dimension_synthesis"}
+{"event": "gap_selected", "success": true, "detail": "wire_weekly_full_dimension_synthesis"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_weekly_full_dimension_synthesis.py"}
+{"event": "code_generated", "success": true, "detail": "1595 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_weekly_full_dimension_synthesis"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Synthesis] Jesse tracks metrics across dimensions but lacks automated, data-driven recommendations to translate insights into actionable improvements.\nQueries the latest data from daily trackers (Health, Wealth, Happiness, Agency, Capability) stored in conversation memory or DB. Uses heuristics or LLM via model_interface to identify underperforming areas and generate 1-2 concrete, prioritized actions per dimension. Delivers a concise daily DM summary with recommendations, expected impact, and integration with existing trackers for follow-up.", "missing_capability": "daily_action_recommender", "timestamp": 1773151768.2414577}
+{"event": "gap_selected", "success": true, "detail": "daily_action_recommender"}
+{"event": "plan_created", "success": true, "detail": "capabilities/daily_action_recommender.py"}
+{"event": "code_generated", "success": true, "detail": "6354 chars"}
+{"event": "capability_integrated", "success": true, "detail": "daily_action_recommender"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'daily_action_recommender' (capabilities/daily_action_recommender.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_daily_action_recommender.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_daily_action_recommender"}
+{"event": "gap_selected", "success": true, "detail": "wire_daily_action_recommender"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_daily_action_recommender.py"}
+{"event": "code_generated", "success": true, "detail": "1713 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_daily_action_recommender"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Synthesis] Jesse needs trend analysis across all daily trackers to identify long-term patterns and predict potential issues in any dimension for proactive synthesis.\nPeriodically analyzes historical data from all daily trackers (Health, Wealth, Happiness, Agency, Capability) to compute trends like 7-day averages, growth rates, and correlations between dimensions. Generates a Discord DM summary with visualizations (text-based charts) and insights, such as 'Happiness declining correlated with low Agency'. Integrates with daily_action_recommender to prioritize recommendations based on trends.", "missing_capability": "dimension_trend_analyzer", "timestamp": 1773152485.0614815}
+{"event": "gap_selected", "success": true, "detail": "dimension_trend_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/dimension_trend_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "7264 chars"}
+{"event": "capability_integrated", "success": true, "detail": "dimension_trend_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'dimension_trend_analyzer' (capabilities/dimension_trend_analyzer.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_dimension_trend_analyzer.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_dimension_trend_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "wire_dimension_trend_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_dimension_trend_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "1742 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_dimension_trend_analyzer"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Capability] Archi's recommendations are generic due to lack of accurate knowledge of Jesse's skills, job, and background, as shown in the recent failed public profile research.\nMaintains a structured JSON profile of Jesse's self-reported skills, job details, location, preferences, and goals by parsing conversations and prompting for clarifications via Discord DMs when gaps are detected. Integrates with daily trackers and action recommenders to personalize advice, such as tailored skill-building or automation ideas based on his actual job. Periodically reviews and updates the profile using conversation history and user feedback to ensure accuracy over time.", "missing_capability": "personal_profile_manager", "timestamp": 1773153216.810534}
+{"event": "gap_selected", "success": true, "detail": "personal_profile_manager"}
+{"event": "plan_created", "success": true, "detail": "capabilities/personal_profile_manager.py"}
+{"event": "code_generated", "success": true, "detail": "3526 chars"}
+{"event": "capability_integrated", "success": true, "detail": "personal_profile_manager"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'personal_profile_manager' (capabilities/personal_profile_manager.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_personal_profile_manager.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_personal_profile_manager"}
+{"event": "gap_selected", "success": true, "detail": "wire_personal_profile_manager"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_personal_profile_manager.py"}
+{"event": "code_generated", "success": true, "detail": "2024 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_personal_profile_manager"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Capability] Jesse emphasized that Archi should know his existing skills before making tailored suggestions, but current public research failed and the profile manager lacks depth on his specific tax/accounting/unemployment insurance expertise.\nEnables future capabilities like daily_action_recommender to generate precise learning paths, side gigs, or promotions advice based on verified self-reported skills.", "missing_capability": "detailed_skills_inventory_builder", "timestamp": 1773153909.0996864}
+{"event": "gap_selected", "success": true, "detail": "detailed_skills_inventory_builder"}
+{"event": "plan_created", "success": true, "detail": "capabilities/detailed_skills_inventory_builder.py"}
+{"event": "code_generated", "success": true, "detail": "2945 chars"}
+{"event": "capability_integrated", "success": true, "detail": "detailed_skills_inventory_builder"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'detailed_skills_inventory_builder' (capabilities/detailed_skills_inventory_builder.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_detailed_skills_inventory_builder.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_detailed_skills_inventory_builder"}
+{"event": "gap_selected", "success": true, "detail": "wire_detailed_skills_inventory_builder"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_detailed_skills_inventory_builder.py"}
+{"event": "code_generated", "success": true, "detail": "1977 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_detailed_skills_inventory_builder"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Wealth] Jesse tracks bills and finances in Google Sheets and has repeatedly requested direct integration for automated analysis to streamline his wealth management.\nImplements secure Google Sheets API integration via OAuth2 or service account for reading user-shared sheet IDs and ranges. Parses financial data like expenses, income, bills, and balances to generate summaries, detect anomalies, and compute trends compatible with daily_wealth_tracker. Integrates with Discord commands for on-demand analysis and wires into event_loop for periodic bill reviews.", "missing_capability": "google_sheets_analyzer", "timestamp": 1773154626.4533138}
+{"event": "gap_selected", "success": true, "detail": "google_sheets_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/google_sheets_analyzer.py"}
+{"event": "prerequisite_pending", "success": true, "detail": "{\"gap\": \"google_sheets_analyzer\", \"prerequisites\": [\"pip install gspread google-auth google-auth-httplib2\", \"GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON env var pointing to a service account JSON file (with read access to user-shared sheets)\"]}", "missing_capability": "google_sheets_analyzer"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Wealth] Jesse frequently tracks bills and expenses in Google Sheets but must manually paste data due to lack of direct access, hindering efficient wealth analysis and automation.\nIntegrates Google Sheets API using a service account (setup via user-shared sheet access) to read specified sheet ranges or tabs from URLs/IDs provided in Discord messages. Parses and analyzes financial data like bills, expenses, income for summaries, trends, and recommendations. Wires into daily_wealth_tracker and event_loop for automated periodic pulls and Discord notifications of insights.", "missing_capability": "google_sheets_analyzer", "timestamp": 1773156858.544547}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Wealth] Jesse frequently uses Google Sheets to track bills and expenses, and direct integration would automate wealth analysis without manual copy-pasting, saving time and reducing errors.\nImplements secure access to Jesse's Google Sheets via service account JSON credentials (loaded from environment or secure file), reads specified sheet IDs and ranges for bills/expenses data, parses into structured format compatible with daily_wealth_tracker. Performs analysis like categorization, totals, trends, and recommendations, then sends summaries via Discord DM. Integrates into event_loop for periodic pulls or on-demand via commands like '!analyze_bills SHEET_ID RANGE'.", "missing_capability": "google_sheets_bills_analyzer", "timestamp": 1773158351.954639}
+{"event": "prerequisite_confirmed", "success": true, "missing_capability": "google_sheets_analyzer", "detail": "Jesse confirmed prerequisites are ready."}
+{"event": "gap_selected", "success": true, "detail": "google_sheets_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/google_sheets_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "1159 chars"}
+{"event": "capability_integrated", "success": true, "detail": "google_sheets_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'google_sheets_analyzer' (capabilities/google_sheets_analyzer.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_google_sheets_analyzer.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_google_sheets_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "google_sheets_bills_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/google_sheets_bills_analyzer.py"}
+{"event": "prerequisite_pending", "success": true, "detail": "{\"gap\": \"google_sheets_bills_analyzer\", \"prerequisites\": [\"pip install gspread google-auth google-auth-oauthlib google-auth-httplib2\", \"GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON env var pointing to a service account JSON file\"]}", "missing_capability": "google_sheets_bills_analyzer"}
+{"event": "prerequisite_confirmed", "success": true, "missing_capability": "google_sheets_bills_analyzer", "detail": "Jesse confirmed prerequisites are ready."}
+{"event": "gap_selected", "success": true, "detail": "google_sheets_bills_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/google_sheets_bills_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "7607 chars"}
+{"event": "capability_integrated", "success": true, "detail": "google_sheets_bills_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'google_sheets_bills_analyzer' (capabilities/google_sheets_bills_analyzer.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_google_sheets_bills_analyzer.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_google_sheets_bills_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "wire_google_sheets_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_google_sheets_analyzer.py"}
+{"event": "prerequisite_pending", "success": true, "detail": "{\"gap\": \"wire_google_sheets_analyzer\", \"prerequisites\": [\"pip install gspread google-auth\", \"GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON env var pointing to a service account JSON file\"]}", "missing_capability": "wire_google_sheets_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "wire_google_sheets_bills_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_google_sheets_bills_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "2540 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_google_sheets_bills_analyzer"}
+{"event": "gap_signal_from_discord", "success": false, "missing_capability": "guess_couldn_read_file", "detail": "I guess you couldn't read the pdf file.  looks like a gap you should work out in the future.  I'll try to grab an image of it for you to look at for now."}
+{"event": "gap_selected", "success": true, "detail": "guess_couldn_read_file"}
+{"event": "plan_created", "success": true, "detail": "capabilities/pdf_text_extractor.py"}
+{"event": "prerequisite_pending", "success": true, "detail": "{\"gap\": \"guess_couldn_read_file\", \"prerequisites\": [\"pip install pdfplumber\"]}", "missing_capability": "guess_couldn_read_file"}
+{"event": "prerequisite_confirmed", "success": true, "missing_capability": "wire_google_sheets_analyzer", "detail": "Jesse confirmed prerequisites are ready."}
+{"event": "prerequisite_confirmed", "success": true, "missing_capability": "guess_couldn_read_file", "detail": "Jesse confirmed prerequisites are ready."}
+{"event": "gap_selected", "success": true, "detail": "guess_couldn_read_file"}
+{"event": "plan_created", "success": true, "detail": "capabilities/pdf_text_extractor.py"}
+{"event": "code_generated", "success": true, "detail": "3314 chars"}
+{"event": "capability_integrated", "success": true, "detail": "guess_couldn_read_file"}
+{"event": "jesse_gap_resolved", "success": true, "detail": "guess_couldn_read_file"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'guess_couldn_read_file' (capabilities/pdf_text_extractor.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_guess_couldn_read_file.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_guess_couldn_read_file"}
+{"event": "gap_selected", "success": true, "detail": "wire_google_sheets_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_google_sheets_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "4441 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_google_sheets_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "wire_guess_couldn_read_file"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_guess_couldn_read_file.py"}
+{"event": "code_generated", "success": true, "detail": "3812 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_guess_couldn_read_file"}
+{"event": "gap_signal_from_discord", "success": false, "missing_capability": "just_thought_possibly_spare", "detail": "Just thought of a Gap you could log to possibly spare some of your budget to do more in a day.  Some parts of your prompts to the API's can probably be cached, if you set that up you might save some $."}
+{"event": "gap_selected", "success": true, "detail": "just_thought_possibly_spare"}
+{"event": "plan_created", "success": true, "detail": "capabilities/prompt_cacher.py"}
+{"event": "code_generated", "success": true, "detail": "4719 chars"}
+{"event": "capability_integrated", "success": true, "detail": "just_thought_possibly_spare"}
+{"event": "jesse_gap_resolved", "success": true, "detail": "just_thought_possibly_spare"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'just_thought_possibly_spare' (capabilities/prompt_cacher.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_just_thought_possibly_spare.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_just_thought_possibly_spare"}
+{"event": "gap_selected", "success": true, "detail": "wire_just_thought_possibly_spare"}
+{"event": "plan_created", "success": true, "detail": "capabilities/integrate_just_thought_possibly_spare.py"}
+{"event": "code_generated", "success": true, "detail": "596 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_just_thought_possibly_spare"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Agency] Jesse's new puppy commitment severely limits his agency through enforced routines and travel restrictions, and he needs automated local scanning for quick rehoming or resale options in McFarland/Madison WI to restore freedom rapidly.\nIntegrates with Craigslist RSS feeds for the madison.craigslist.org pets/dogs section using feedparser to fetch and parse recent listings matching keywords like 'Border Collie' or 'puppy'; analyzes prices, seller contacts, and posting dates from user's location in personal_profile_manager; sends periodic Discord DM summaries of matches with action links to enable fast rehoming or price benchmarking for resale. Generalizes to other categories like 'services' or 'for sale' based on conversation context for broader agency support.", "missing_capability": "craigslist_pet_scanner", "timestamp": 1773160620.7401574}
+{"event": "gap_selected", "success": true, "detail": "craigslist_pet_scanner"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_pet_scanner.py"}
+{"event": "prerequisite_pending", "success": true, "detail": "{\"gap\": \"craigslist_pet_scanner\", \"prerequisites\": [\"pip install feedparser\"]}", "missing_capability": "craigslist_pet_scanner"}
+{"event": "prerequisite_confirmed", "success": true, "missing_capability": "craigslist_pet_scanner", "detail": "Jesse confirmed prerequisites are ready."}
+{"event": "gap_selected", "success": true, "detail": "craigslist_pet_scanner"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_pet_scanner.py"}
+{"event": "code_generated", "success": true, "detail": "4990 chars"}
+{"event": "capability_integrated", "success": true, "detail": "craigslist_pet_scanner"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'craigslist_pet_scanner' (capabilities/craigslist_pet_scanner.py) was built and tests pass, but nothing imports or references it. Jesse cannot benefit from it until it is wired into an active pathway.\n\nWIRING RULE: Create a NEW integration file in capabilities/ (e.g. capabilities/integrate_craigslist_pet_scanner.py) that imports both the new capability and whatever entry point needs it, then provides a thin bridge function. Do NOT create a wire_X.py file. Do NOT modify protected files (run.py, discord_listener.py, discord_gateway.py, event_loop.py, or any src/kernel/ file) \u2014 writes to those will be blocked.", "missing_capability": "wire_craigslist_pet_scanner"}
+{"event": "gap_selected", "success": true, "detail": "wire_craigslist_pet_scanner"}
+{"event": "gap_selected", "success": true, "detail": "wire_craigslist_pet_scanner"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_craigslist_pet_scanner.py"}
+{"event": "code_generated", "success": true, "detail": "1423 chars"}
+{"event": "integrate_failed", "success": false, "detail": "Exception: Cmd('git') failed due to: exit code(128)\n  cmdline: git checkout -b archi/mod-ac03418b\n  stderr: 'error: cannot lock ref 'HEAD': Unable to create 'C:/Users/koorb/Repos/archi-core/.git/HEAD.lock': File exists.\n\nAnother git process seems to be running in this repository, e.g.\nan editor opened by 'git commit'. Please make sure all processes\nare terminated then try again. If it still fails, a git process\nmay have crashed in this repository earlier:\nremove the file manually to continue.\nfatal: unable to update HEAD'", "missing_capability": "wire_craigslist_pet_scanner"}
+{"event": "gap_selected", "success": true, "detail": "wire_craigslist_pet_scanner"}
+{"event": "plan_created", "success": true, "detail": "capabilities/wire_craigslist_pet_scanner.py"}
+{"event": "code_generated", "success": true, "detail": "1501 chars"}
+{"event": "capability_integrated", "success": true, "detail": "wire_craigslist_pet_scanner"}
+{"event": "cycle_no_gaps", "success": true}
+{"event": "self_evaluator_gap", "success": false, "detail": "[Wealth] Jesse wants to resell his Border Collie puppy to recoup losses, and analyzing local Craigslist listings for pricing and demand would enable optimal pricing strategy.\nParses Madison Craigslist pets/dogs RSS feeds for Border Collie or user-specified breed keywords, extracts prices, ages, and conditions using regex and text processing. Computes statistics like median price, listing volume, and trends, storing in a local DB for historical tracking. Sends periodic Discord DMs with market summary and pricing recommendations based on Jesse's puppy details from profile.", "missing_capability": "craigslist_dog_price_analyzer", "timestamp": 1773166821.7182899}
+{"event": "gap_selected", "success": true, "detail": "craigslist_dog_price_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_dog_price_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "8111 chars"}
+{"event": "capability_integrated", "success": true, "detail": "craigslist_dog_price_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'craigslist_dog_price_analyzer' (capabilities/craigslist_dog_price_analyzer.py) was built and tests pass, but is not reachable. To make it reachable, the capability should self-register using one of these mechanisms:\n  - Periodic: call src.kernel.periodic_registry.register() in its initialize() function\n  - On-demand: call src.kernel.command_registry.register() in its initialize() function\nDo NOT create wire_*.py or integrate_*.py files. Do NOT import from capabilities.event_loop (deprecated).", "missing_capability": "register_craigslist_dog_price_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "register_craigslist_dog_price_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_dog_price_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "7228 chars"}
+{"event": "capability_integrated", "success": true, "detail": "register_craigslist_dog_price_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'register_craigslist_dog_price_analyzer' (capabilities/craigslist_dog_price_analyzer.py) was built and tests pass, but is not reachable. To make it reachable, the capability should self-register using one of these mechanisms:\n  - Periodic: call src.kernel.periodic_registry.register() in its initialize() function\n  - On-demand: call src.kernel.command_registry.register() in its initialize() function\nDo NOT create wire_*.py or integrate_*.py files. Do NOT import from capabilities.event_loop (deprecated).", "missing_capability": "register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "register_register_craigslist_dog_price_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_dog_price_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "7530 chars"}
+{"event": "capability_integrated", "success": true, "detail": "register_register_craigslist_dog_price_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'register_register_craigslist_dog_price_analyzer' (capabilities/craigslist_dog_price_analyzer.py) was built and tests pass, but is not reachable. To make it reachable, the capability should self-register using one of these mechanisms:\n  - Periodic: call src.kernel.periodic_registry.register() in its initialize() function\n  - On-demand: call src.kernel.command_registry.register() in its initialize() function\nDo NOT create wire_*.py or integrate_*.py files. Do NOT import from capabilities.event_loop (deprecated).", "missing_capability": "register_register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_selected", "success": true, "detail": "register_register_register_craigslist_dog_price_analyzer"}
+{"event": "plan_created", "success": true, "detail": "capabilities/craigslist_dog_price_analyzer.py"}
+{"event": "code_generated", "success": true, "detail": "9309 chars"}
+{"event": "capability_integrated", "success": true, "detail": "register_register_register_craigslist_dog_price_analyzer"}
+{"event": "reachability_check_failed", "success": false, "detail": "Capability 'register_register_register_craigslist_dog_price_analyzer' (capabilities/craigslist_dog_price_analyzer.py) was built and tests pass, but is not reachable. To make it reachable, the capability should self-register using one of these mechanisms:\n  - Periodic: call src.kernel.periodic_registry.register() in its initialize() function\n  - On-demand: call src.kernel.command_registry.register() in its initialize() function\nDo NOT create wire_*.py or integrate_*.py files. Do NOT import from capabilities.event_loop (deprecated).", "missing_capability": "register_register_register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "prefix_loop_blocked", "success": false, "detail": "Blocked prefix-doubling gap: register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_permanently_suppressed", "success": true, "detail": "register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_permanently_suppressed", "success": true, "detail": "register_register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_permanently_suppressed", "success": true, "detail": "register_register_register_register_craigslist_dog_price_analyzer"}
+{"event": "gap_permanently_suppressed", "success": true, "detail": "register_craigslist_dog_price_analyzer"}

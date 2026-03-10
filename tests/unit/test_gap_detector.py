@@ -250,3 +250,44 @@ class TestPrerequisiteSuppression:
         gap_names = {g.name for g in gaps}
         assert "google_sheets_analyzer" not in gap_names
         assert "other_tool" in gap_names
+
+
+class TestGapPermanentSuppression:
+    """Gaps marked as permanently suppressed should never resurface."""
+
+    def test_suppressed_gap_removed(self, tmp_path):
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description="k"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            # The gap exists in the log...
+            {"event": "reachability_check_failed", "success": False,
+             "missing_capability": "register_register_foo"},
+            {"event": "reachability_check_failed", "success": False,
+             "missing_capability": "register_register_foo"},
+            # ...but was permanently suppressed
+            {"event": "gap_permanently_suppressed", "success": True,
+             "detail": "register_register_foo"},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "register_register_foo" not in gap_names
+
+    def test_unsuppressed_gap_still_visible(self, tmp_path):
+        reg = CapabilityRegistry(path=tmp_path / "reg.json")
+        for name, module in KERNEL_COMPONENTS.items():
+            reg.register(Capability(name=name, module=module, description="k"))
+        log = tmp_path / "ops.jsonl"
+        entries = [
+            {"event": "integrate_failed", "success": False,
+             "missing_capability": "real_gap"},
+            # Only register_register_foo is suppressed, not real_gap
+            {"event": "gap_permanently_suppressed", "success": True,
+             "detail": "register_register_foo"},
+        ]
+        log.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
+        gaps = detect_gaps(reg, log_path=log)
+        gap_names = {g.name for g in gaps}
+        assert "real_gap" in gap_names

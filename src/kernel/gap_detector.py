@@ -97,6 +97,8 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     # Track gaps that were resolved after Jesse signaled them, so we don't
     # keep rebuilding capabilities that have already been addressed.
     resolved_jesse_gaps: set[str] = set()
+    # Track permanently suppressed gaps (prefix-doubling loops, etc.)
+    suppressed_gaps: set[str] = set()
     # Track prerequisites: pending means Jesse was asked; confirmed means he replied.
     # A gap with pending but no confirmed should be suppressed.
     prereq_pending: set[str] = set()
@@ -124,6 +126,11 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
             if (entry.get("success")
                     and entry.get("event") == "jesse_gap_resolved"):
                 resolved_jesse_gaps.add(entry.get("detail", ""))
+                continue
+            # Track permanently suppressed gaps (loop guard, etc.)
+            if (entry.get("success")
+                    and entry.get("event") == "gap_permanently_suppressed"):
+                suppressed_gaps.add(entry.get("detail", ""))
                 continue
             if entry.get("success"):
                 continue
@@ -159,6 +166,10 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     # Remove gaps that were resolved after Jesse signaled them
     for name in list(gaps):
         if name in resolved_jesse_gaps:
+            del gaps[name]
+    # Remove permanently suppressed gaps (prefix-doubling loops, etc.)
+    for name in list(gaps):
+        if name in suppressed_gaps:
             del gaps[name]
     # Suppress gaps waiting for prerequisite confirmation from Jesse
     waiting_for_prereqs = prereq_pending - prereq_confirmed

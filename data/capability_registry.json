@@ -682,13 +682,5 @@
       "discord_notifier"
     ],
     "metadata": {}
-  },
-  {
-    "name": "register_craigslist_dog_price_analyzer",
-    "module": "capabilities/craigslist_dog_price_analyzer.py",
-    "description": "Update the existing Craigslist dog price analyzer to self-register as a periodic task using src.kernel.periodic_registry.register in its initialize function.",
-    "status": "active",
-    "dependencies": [],
-    "metadata": {}
   }
 ]
