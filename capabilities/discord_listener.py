@@ -242,6 +242,41 @@ async def _handle_trigger(user_id: str, content: str) -> None:
     # A more sophisticated version could signal the daemon to run immediately.
 
 
+PROFILE_PATH = Path("data/personal_profile.json")
+
+
+def _load_jesse_profile() -> str:
+    """Load Jesse's personal profile JSON as a string for prompt injection.
+
+    Returns an empty string if the profile does not exist or can't be read.
+    """
+    try:
+        if PROFILE_PATH.exists():
+            data = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+            return json.dumps(data, indent=2)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.debug("Could not load Jesse's profile: %s", exc)
+    return ""
+
+
+_CONVERSATION_SYSTEM = (
+    "You are Archi, Jesse's personal AI assistant. Be concise and helpful.\n\n"
+    "CRITICAL RULES:\n"
+    "1. NEVER search the web for information about Jesse. You know Jesse ONLY "
+    "through what he tells you directly in conversation and from his profile "
+    "below. If you don't know something about Jesse, ask him — do not guess "
+    "or fabricate details.\n"
+    "2. NEVER start your response with '[build]' or any build notification "
+    "prefix. Those are internal system messages.\n"
+    "3. If Jesse asks you to research him or look him up, explain that you "
+    "learn about him through conversation, not web searches, and ask him to "
+    "share the details directly.\n"
+    "4. Do not confidently assert facts about Jesse (employer, location, "
+    "skills, etc.) unless they appear in his profile or he told you in this "
+    "conversation."
+)
+
+
 async def _handle_conversation(user_id: str, content: str) -> None:
     """Handle general conversation using the model + conversational memory."""
     store_message(user_id, content, role="user")
@@ -249,26 +284,35 @@ async def _handle_conversation(user_id: str, content: str) -> None:
     # Build context from conversation history
     context = get_context(user_id)
 
+    # Load Jesse's profile for grounded responses
+    profile_text = _load_jesse_profile()
+
     try:
         from src.kernel.model_interface import call_model
 
         prompt = (
-            f"You are Archi, Jesse's personal AI assistant. You are helpful, concise, "
-            f"and oriented toward Jesse's wellbeing across six dimensions: Health, Wealth, "
-            f"Happiness, Agency, Capability, and Synthesis.\n\n"
+            "You are Archi, Jesse's personal AI assistant. You are helpful, concise, "
+            "and oriented toward Jesse's wellbeing across six dimensions: Health, Wealth, "
+            "Happiness, Agency, Capability, and Synthesis.\n\n"
         )
+        if profile_text:
+            prompt += f"Jesse's profile (verified, self-reported):\n{profile_text}\n\n"
         if context:
             prompt += f"Recent conversation context:\n{context}\n\n"
         prompt += f"Jesse says: {content}\n\nRespond helpfully and concisely."
 
         response = call_model(
             prompt,
-            system="You are Archi, Jesse's AI assistant. Be concise and helpful.",
+            system=_CONVERSATION_SYSTEM,
         )
         reply = response.text.strip()
     except Exception as exc:
         logger.warning("Model call failed for conversation: %s", exc)
         reply = "I'm here but having trouble generating a response right now. Let me try again later."
+
+    # Guard: never let a conversation reply start with a build notification prefix
+    if reply.startswith("[build]"):
+        reply = reply[len("[build]"):].strip()
 
     await notify_async(reply)
     store_message(user_id, reply, role="assistant")
