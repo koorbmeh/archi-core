@@ -11,6 +11,7 @@ from src.kernel.capability_registry import Capability, CapabilityRegistry
 from src.kernel.gap_detector import Gap
 from src.kernel.generation_loop import (
     CycleResult,
+    _is_prefix_loop,
     _log_operation,
     _parse_plan,
     _prerequisites_confirmed,
@@ -828,3 +829,40 @@ class TestNoBuildPrefixInNotifications:
         for notif in result.pending_notifications:
             assert not notif.startswith("[build]"), \
                 f"Prerequisite DM must not start with [build]: {notif!r}"
+
+
+class TestPrefixLoop:
+    """Tests for _is_prefix_loop — catches all prefix-doubling patterns."""
+
+    def test_wire_wire(self):
+        assert _is_prefix_loop("wire_wire_foo") is True
+
+    def test_register_register(self):
+        assert _is_prefix_loop("register_register_foo") is True
+
+    def test_integrate_integrate(self):
+        assert _is_prefix_loop("integrate_integrate_foo") is True
+
+    def test_wire_register(self):
+        assert _is_prefix_loop("wire_register_foo") is True
+
+    def test_register_wire(self):
+        assert _is_prefix_loop("register_wire_foo") is True
+
+    def test_register_integrate(self):
+        assert _is_prefix_loop("register_integrate_foo") is True
+
+    def test_single_wire_ok(self):
+        assert _is_prefix_loop("wire_foo") is False
+
+    def test_single_register_ok(self):
+        assert _is_prefix_loop("register_foo") is False
+
+    def test_single_integrate_ok(self):
+        assert _is_prefix_loop("integrate_foo") is False
+
+    def test_no_prefix_ok(self):
+        assert _is_prefix_loop("daily_health_tracker") is False
+
+    def test_triple_prefix(self):
+        assert _is_prefix_loop("register_register_register_foo") is True

@@ -437,5 +437,258 @@
       "event_loop"
     ],
     "metadata": {}
+  },
+  {
+    "name": "weekly_full_dimension_synthesis",
+    "module": "capabilities/weekly_full_dimension_synthesis.py",
+    "description": "Aggregates weekly metrics from Health, Wealth, Happiness, Agency, and Capability daily trackers to compute trends, dimension scores, cross-dimensional insights, and generate comprehensive Discord DM reports with text charts, summaries, imbalances, and action recommendations.",
+    "status": "active",
+    "dependencies": [
+      "weekly_dimension_synthesis",
+      "daily_agency_tracker",
+      "daily_capability_tracker",
+      "event_loop",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_weekly_full_dimension_synthesis",
+    "module": "capabilities/wire_weekly_full_dimension_synthesis.py",
+    "description": "Integrates weekly_full_dimension_synthesis into the active event loop pathway by providing initialization, registration, and event loop integration functions following established wiring patterns.",
+    "status": "active",
+    "dependencies": [
+      "weekly_full_dimension_synthesis",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "daily_action_recommender",
+    "module": "capabilities/daily_action_recommender.py",
+    "description": "Fetches latest data from daily trackers (Health, Wealth, Happiness, Agency, Capability) stored in data/ JSONL files, analyzes underperformance using model_interface LLM calls to generate 1-2 prioritized actions per dimension, and sends a concise daily DM summary via discord_notifier with expected impacts and follow-up integration.",
+    "status": "active",
+    "dependencies": [
+      "model_interface",
+      "discord_notifier",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_daily_action_recommender",
+    "module": "capabilities/wire_daily_action_recommender.py",
+    "description": "Wires the daily_action_recommender capability into the event loop to enable periodic generation and delivery of daily action recommendations to Jesse via notifications.",
+    "status": "active",
+    "dependencies": [
+      "daily_action_recommender",
+      "event_loop",
+      "capability_registry",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "dimension_trend_analyzer",
+    "module": "capabilities/dimension_trend_analyzer.py",
+    "description": "Periodically analyzes historical data from daily trackers (Health, Wealth, Happiness, Agency, Capability) to compute trends like 7-day averages, growth rates, and correlations, generates text-based charts and insights, sends Discord DM summaries, and integrates with daily_action_recommender for prioritized actions.",
+    "status": "active",
+    "dependencies": [
+      "daily_health_tracker",
+      "daily_wealth_tracker",
+      "daily_happiness_tracker",
+      "daily_agency_tracker",
+      "daily_capability_tracker",
+      "daily_action_recommender",
+      "discord_notifier",
+      "event_loop",
+      "model_interface",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_dimension_trend_analyzer",
+    "module": "capabilities/wire_dimension_trend_analyzer.py",
+    "description": "Wiring module that initializes and integrates the dimension_trend_analyzer into the event loop for periodic trend analysis execution.",
+    "status": "active",
+    "dependencies": [
+      "dimension_trend_analyzer",
+      "event_loop",
+      "capability_registry"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "personal_profile_manager",
+    "module": "capabilities/personal_profile_manager.py",
+    "description": "Maintains a structured JSON profile of Jesse's self-reported skills, job details, location, preferences, and goals by parsing conversation history and prompting for clarifications via Discord DMs when gaps are detected.",
+    "status": "active",
+    "dependencies": [
+      "conversational_memory",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_personal_profile_manager",
+    "module": "capabilities/wire_personal_profile_manager.py",
+    "description": "Integrates the personal_profile_manager into the event loop via a periodic task for profile updates and gap prompting, ensuring reachability and active usage.",
+    "status": "active",
+    "dependencies": [
+      "personal_profile_manager",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "detailed_skills_inventory_builder",
+    "module": "capabilities/detailed_skills_inventory_builder.py",
+    "description": "Analyzes conversation history, personal profile, and user interactions to build and maintain a detailed, categorized inventory of Jesse's skills, with emphasis on tax, accounting, and unemployment insurance expertise.",
+    "status": "active",
+    "dependencies": [
+      "personal_profile_manager",
+      "conversational_memory",
+      "timestamped_chat_history_recall"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_detailed_skills_inventory_builder",
+    "module": "capabilities/integrate_detailed_skills_inventory_builder.py",
+    "description": "Integrates detailed_skills_inventory_builder into the event loop as a periodic task to maintain an up-to-date skills inventory in Jesse's personal profile.",
+    "status": "active",
+    "dependencies": [
+      "detailed_skills_inventory_builder",
+      "event_loop",
+      "personal_profile_manager"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "google_sheets_analyzer",
+    "module": "capabilities/google_sheets_analyzer.py",
+    "description": "Implements secure Google Sheets API integration using service account authentication to read and analyze financial data from user-shared sheets, generating summaries, detecting anomalies, computing trends, and integrating with Discord commands and the event loop for periodic bill reviews.",
+    "status": "active",
+    "dependencies": [
+      "daily_wealth_tracker",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "google_sheets_bills_analyzer",
+    "module": "capabilities/google_sheets_bills_analyzer.py",
+    "description": "Implements secure Google Sheets access for bills/expenses analysis, parsing data into daily_wealth_tracker-compatible structures, performing categorization/totals/trends/recommendations, and notifying via Discord DMs on command or periodically.",
+    "status": "active",
+    "dependencies": [
+      "google_sheets_analyzer",
+      "daily_wealth_tracker",
+      "discord_notifier",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_google_sheets_bills_analyzer",
+    "module": "capabilities/integrate_google_sheets_bills_analyzer.py",
+    "description": "Thin bridge module that initializes and wires google_sheets_bills_analyzer into the event loop for periodic bill analysis and into the Discord message queue for handling user-submitted bill sheets.",
+    "status": "active",
+    "dependencies": [
+      "google_sheets_bills_analyzer",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "guess_couldn_read_file",
+    "module": "capabilities/pdf_text_extractor.py",
+    "description": "Extracts text from PDF files via URL download and parsing, enabling processing of PDF attachments in Discord messages.",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
+  },
+  {
+    "name": "wire_google_sheets_analyzer",
+    "module": "capabilities/wire_google_sheets_analyzer.py",
+    "description": "Integrates google_sheets_analyzer into the Discord message processing pipeline enabling Jesse to request analysis of specific Google Sheets via chat commands.",
+    "status": "active",
+    "dependencies": [
+      "google_sheets_analyzer"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_guess_couldn_read_file",
+    "module": "capabilities/integrate_guess_couldn_read_file.py",
+    "description": "Integrates the guess_couldn_read_file capability into Discord message processing to handle PDF attachments and file readability queries from Jesse.",
+    "status": "active",
+    "dependencies": [
+      "guess_couldn_read_file",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "just_thought_possibly_spare",
+    "module": "capabilities/prompt_cacher.py",
+    "description": "Provides a caching mechanism for LLM prompts and responses to reduce API costs by storing and reusing results for identical prompts.",
+    "status": "active",
+    "dependencies": [
+      "model_interface"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_just_thought_possibly_spare",
+    "module": "capabilities/integrate_just_thought_possibly_spare.py",
+    "description": "Provides a thin integration bridge that monkey-patches the kernel's model_interface.call_model to use the prompt cacher's cached_call_model for all future model invocations.",
+    "status": "active",
+    "dependencies": [
+      "just_thought_possibly_spare"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "craigslist_pet_scanner",
+    "module": "capabilities/craigslist_pet_scanner.py",
+    "description": "Scans Craigslist RSS feeds for madison.craigslist.org pets/dogs listings matching user keywords from personal_profile_manager, analyzes prices/contacts/dates/location relevance, and sends periodic Discord DM summaries with action links for rehoming/resale.",
+    "status": "active",
+    "dependencies": [
+      "personal_profile_manager",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "wire_craigslist_pet_scanner",
+    "module": "capabilities/wire_craigslist_pet_scanner.py",
+    "description": "Integrates the craigslist_pet_scanner into the event loop by providing initialization, registration, and wiring functions.",
+    "status": "active",
+    "dependencies": [
+      "craigslist_pet_scanner",
+      "event_loop"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "craigslist_dog_price_analyzer",
+    "module": "capabilities/craigslist_dog_price_analyzer.py",
+    "description": "Parses Madison Craigslist pets/dogs RSS feeds for Border Collie or specified breed keywords, extracts prices/ages/conditions via regex, computes median price/listing volume/trends stored in local SQLite DB, and sends periodic Discord DMs with summaries and pricing recommendations using Jesse's puppy profile.",
+    "status": "active",
+    "dependencies": [
+      "personal_profile_manager",
+      "discord_notifier"
+    ],
+    "metadata": {}
+  },
+  {
+    "name": "register_craigslist_dog_price_analyzer",
+    "module": "capabilities/craigslist_dog_price_analyzer.py",
+    "description": "Update the existing Craigslist dog price analyzer to self-register as a periodic task using src.kernel.periodic_registry.register in its initialize function.",
+    "status": "active",
+    "dependencies": [],
+    "metadata": {}
   }
 ]

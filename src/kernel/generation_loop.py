@@ -65,6 +65,23 @@ def _error_slug(error_text: str, max_len: int = 40) -> str:
     slug = _SLUG_RE.sub("_", error_text.lower()).strip("_")
     return slug[:max_len].rstrip("_")
 
+
+_LOOP_PREFIXES = ("wire_", "register_", "integrate_")
+
+
+def _is_prefix_loop(name: str) -> bool:
+    """Detect prefix-doubling loops like register_register_X or wire_register_X.
+
+    Strip one known prefix; if the remainder still starts with a known prefix,
+    this is a loop. Catches wire_wire_, register_register_, wire_register_, etc.
+    """
+    for prefix in _LOOP_PREFIXES:
+        if name.startswith(prefix):
+            remainder = name[len(prefix):]
+            if any(remainder.startswith(p) for p in _LOOP_PREFIXES):
+                return True
+    return False
+
 PLAN_SYSTEM = (
     "You are Archi's planning module. Given a capability gap, output ONLY a JSON "
     'object with keys: "file_path" (relative path), "description" (one sentence), '
@@ -287,21 +304,21 @@ def run_cycle(
     gap = gaps[0]  # highest priority
     logger.info("Top gap: %s (priority %.2f, source=%s)", gap.name, gap.priority, gap.source)
 
-    # Hard guard: refuse to plan any wire_wire_* gap — this is a sign of the
-    # infinite wiring loop. Log an error and skip it entirely.
-    if gap.name.startswith("wire_wire_"):
+    # Hard guard: refuse to plan any gap with doubled prefixes — this is a
+    # sign of an infinite loop (wire_wire_*, register_register_*, etc.).
+    # Rule: strip known prefixes; if the remainder still starts with one, block.
+    if _is_prefix_loop(gap.name):
         logger.error(
-            "LOOP GUARD: Refusing to plan '%s' — this is a recursive wiring gap. "
-            "The original capability needs manual wiring into an existing file.",
+            "LOOP GUARD: Refusing to plan '%s' — prefix-doubling loop detected.",
             gap.name,
         )
         _log_operation(
-            "wire_loop_blocked", False,
-            detail=f"Blocked recursive wiring gap: {gap.name}",
+            "prefix_loop_blocked", False,
+            detail=f"Blocked prefix-doubling gap: {gap.name}",
             log_path=op_log,
         )
         return CycleResult(phase_reached="plan", gap=gap,
-                           error=f"Blocked recursive wiring gap: {gap.name}")
+                           error=f"Blocked prefix-doubling gap: {gap.name}")
 
     _log_operation("gap_selected", True, detail=gap.name, log_path=op_log)
 
@@ -568,12 +585,24 @@ def _check_reachability(
     If unreachable, logs a guidance gap pointing to periodic_registry or
     command_registry — NOT a wire_X file (those are dead code).
     """
-    # Skip reachability for wire_ and integrate_ capabilities — legacy dead code
-    if cap.name.startswith(("wire_", "integrate_")):
-        logger.debug("Skipping reachability check for legacy wiring: %s", cap.name)
+    # Skip reachability for wire_, integrate_, register_ capabilities — wiring artifacts
+    if cap.name.startswith(("wire_", "integrate_", "register_")):
+        logger.debug("Skipping reachability check for wiring artifact: %s", cap.name)
         return
 
     cap_module_stem = Path(cap.module).stem
+
+    # Check 0: Does the file self-register with periodic_registry or command_registry?
+    own_path = Path(cap.module)
+    if own_path.exists():
+        try:
+            own_content = own_path.read_text(encoding="utf-8")
+            if ("periodic_registry.register(" in own_content
+                    or "command_registry.register(" in own_content):
+                logger.info("Reachability: %s self-registers via registry.", cap.name)
+                return
+        except OSError:
+            pass
 
     # Check 1: Is it referenced by another file?
     scan_dirs = [Path("capabilities"), Path("src/kernel")]
