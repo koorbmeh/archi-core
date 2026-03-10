@@ -286,6 +286,36 @@ def run_cycle(
     logger.info("Generated %d chars for %s.", len(code), plan["file_path"])
     _log_operation("code_generated", True, detail=f"{len(code)} chars", log_path=op_log)
 
+    # --- Phase 3b: Skip if generated code is identical to existing file ---
+    target_path = Path(repo_path) / plan["file_path"]
+    if target_path.exists():
+        try:
+            existing = target_path.read_text(encoding="utf-8")
+            if existing.strip() == code.strip():
+                logger.info(
+                    "Generated code identical to existing %s — skipping rebuild.",
+                    plan["file_path"],
+                )
+                _log_operation(
+                    "code_unchanged_skip", True,
+                    detail=f"{plan['file_path']} unchanged", log_path=op_log,
+                )
+                # Mark Jesse-signaled gaps as resolved even when skipping
+                is_jesse_signal = any(
+                    "gap_signal_from_discord" in ev for ev in gap.evidence
+                )
+                if is_jesse_signal:
+                    _log_operation(
+                        "jesse_gap_resolved", True,
+                        detail=gap.name, log_path=op_log,
+                    )
+                return CycleResult(
+                    phase_reached="integrate", gap=gap, plan=plan,
+                    capability_registered=True,
+                )
+        except OSError:
+            pass  # can't read existing file — proceed with apply_change
+
     # --- Phase 4: Test + Integrate ---
     change = apply_change(repo_path, plan["file_path"], code)
     if not change.success:
@@ -296,10 +326,8 @@ def run_cycle(
         else:
             _log_operation("integrate_failed", False, detail=change.message,
                            missing_cap=gap.name, log_path=op_log)
-        fail_result = CycleResult(phase_reached="integrate", gap=gap, plan=plan,
-                                  change=change, error=change.message)
-        _notify_cycle_result(fail_result)
-        return fail_result
+        return CycleResult(phase_reached="integrate", gap=gap, plan=plan,
+                           change=change, error=change.message)
 
     # Register the new capability
     cap = Capability(
@@ -311,6 +339,19 @@ def run_cycle(
     )
     registry.register(cap)
     _log_operation("capability_integrated", True, detail=gap.name, log_path=op_log)
+
+    # If this gap was signaled by Jesse via Discord, mark it resolved so the
+    # old signal entries don't cause an infinite rebuild loop.
+    is_jesse_signal = any(
+        "gap_signal_from_discord" in ev for ev in gap.evidence
+    )
+    if is_jesse_signal:
+        _log_operation(
+            "jesse_gap_resolved", True,
+            detail=gap.name, log_path=op_log,
+        )
+        logger.info("Marked Jesse-signaled gap '%s' as resolved.", gap.name)
+
     logger.info("Cycle complete — integrated %s.", gap.name)
 
     # --- Phase 5: Verify reachability ---
@@ -319,15 +360,13 @@ def run_cycle(
     # module. If nothing does, log a wiring gap so the next cycle can fix it.
     _check_reachability(cap, registry, op_log)
 
-    success_result = CycleResult(
+    return CycleResult(
         phase_reached="integrate",
         gap=gap,
         plan=plan,
         change=change,
         capability_registered=True,
     )
-    _notify_cycle_result(success_result)
-    return success_result
 
 
 def _check_reachability(

@@ -26,7 +26,7 @@ load_dotenv()
 
 from src.kernel.capability_registry import Capability, CapabilityRegistry
 from src.kernel.gap_detector import KERNEL_COMPONENTS
-from src.kernel.generation_loop import CycleResult, run_cycle
+from src.kernel.generation_loop import CycleResult, run_cycle, _notify_cycle_result
 from src.kernel.model_interface import (
     call_model, get_session_cost, get_task_config, reset_session,
 )
@@ -259,6 +259,9 @@ class ArchiDaemon:
                         ),
                     )
                 print_result(result, cycle_num)
+                # Notify Discord from the async context (not the executor
+                # thread) so ensure_future() works correctly.
+                _notify_cycle_result(result)
 
                 if result.phase_reached == "observe":
                     self._logger.info("No gaps remain. Sleeping until next interval.")

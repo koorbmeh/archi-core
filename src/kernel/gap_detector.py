@@ -94,6 +94,9 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
     if not path.exists():
         return []
     gaps: dict[str, Gap] = {}
+    # Track gaps that were resolved after Jesse signaled them, so we don't
+    # keep rebuilding capabilities that have already been addressed.
+    resolved_jesse_gaps: set[str] = set()
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -102,6 +105,11 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            # Track Jesse-gap resolutions (written after successful builds)
+            if (entry.get("success")
+                    and entry.get("event") == "jesse_gap_resolved"):
+                resolved_jesse_gaps.add(entry.get("detail", ""))
                 continue
             if entry.get("success"):
                 continue
@@ -134,6 +142,10 @@ def detect_operational_gaps(log_path: Optional[Path] = None) -> list[Gap]:
         is_jesse = any("gap_signal_from_discord" in ev for ev in gap.evidence)
         if is_jesse:
             gap.priority = max(gap.priority, 0.95)
+    # Remove gaps that were resolved after Jesse signaled them
+    for name in list(gaps):
+        if name in resolved_jesse_gaps:
+            del gaps[name]
     return list(gaps.values())
 
 
