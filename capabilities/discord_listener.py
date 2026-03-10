@@ -2,6 +2,7 @@
 Discord listener — processes incoming DMs from Jesse via discord_gateway.
 
 Intent classification routes messages to the appropriate handler:
+  COMMAND      — Jesse sends !command → dispatch to command_registry handler
   GAP          — Jesse describes a missing capability → log to operation_log
   RECALL       — Jesse wants to recall a past message by timestamp
   CONVERSATION — General chat → respond via model + conversational memory
@@ -20,6 +21,11 @@ from pathlib import Path
 from typing import Optional
 
 from src.kernel.capability_registry import CapabilityRegistry
+from src.kernel.command_registry import (
+    load_registry as load_commands,
+    match_command,
+    resolve_function as resolve_command_fn,
+)
 from capabilities.discord_notifier import notify, notify_async
 from capabilities.conversational_memory import store_message, get_context
 
@@ -119,12 +125,18 @@ def _has_pending_prerequisites() -> bool:
 def _classify_intent(content: str, attachment_urls: list) -> str:
     """Classify user intent from message content and attachments.
 
-    Returns one of: IMAGE, RECALL, GAP, TRIGGER, PREREQ_CONFIRM, CONVERSATION.
+    Returns one of: COMMAND, IMAGE, RECALL, GAP, TRIGGER, PREREQ_CONFIRM, CONVERSATION.
     """
     if attachment_urls:
         return "IMAGE"
 
     text = content.strip()
+
+    # Check for !command patterns first (highest priority for explicit commands)
+    if text.startswith("!"):
+        commands = load_commands()
+        if match_command(text, commands) is not None:
+            return "COMMAND"
 
     # Check recall intent first (most specific)
     if any(p.search(text) for p in _RECALL_PATTERNS):
@@ -329,6 +341,58 @@ async def _handle_prereq_confirm(user_id: str, content: str) -> None:
     store_message(user_id, reply, role="assistant")
 
 
+async def _handle_command(user_id: str, content: str) -> None:
+    """Dispatch a !command to the appropriate registered handler."""
+    store_message(user_id, content, role="user")
+
+    commands = load_commands()
+    result = match_command(content, commands)
+    if result is None:
+        await notify_async("I didn't recognize that command. Try `!help` to see available commands.")
+        return
+
+    entry, args = result
+    fn = resolve_command_fn(entry)
+    if fn is None:
+        await notify_async(
+            f"The command **!{entry.command}** is registered but I couldn't load "
+            f"its handler ({entry.module}.{entry.function}). This may need a fix."
+        )
+        return
+
+    await notify_async(f"Running **!{entry.command}**...")
+    try:
+        if entry.is_async:
+            if args:
+                await fn(args)
+            else:
+                await fn()
+        else:
+            loop = asyncio.get_event_loop()
+            if args:
+                await loop.run_in_executor(None, fn, args)
+            else:
+                await loop.run_in_executor(None, fn)
+    except TypeError:
+        # Handler doesn't accept args — call without
+        try:
+            if entry.is_async:
+                await fn()
+            else:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, fn)
+        except Exception as exc:
+            logger.exception("Command !%s failed: %s", entry.command, exc)
+            await notify_async(f"Command **!{entry.command}** failed: {exc}")
+            return
+    except Exception as exc:
+        logger.exception("Command !%s failed: %s", entry.command, exc)
+        await notify_async(f"Command **!{entry.command}** failed: {exc}")
+        return
+
+    store_message(user_id, f"Ran command: !{entry.command}", role="assistant")
+
+
 async def _handle_trigger(user_id: str, content: str) -> None:
     """Acknowledge a generation cycle trigger request."""
     store_message(user_id, content, role="user")
@@ -456,7 +520,9 @@ async def process_one(
     logger.info("Processing message from user=%s intent=%s: %s", user_id, intent, content[:80])
 
     try:
-        if intent == "IMAGE":
+        if intent == "COMMAND":
+            await _handle_command(user_id, content)
+        elif intent == "IMAGE":
             await _handle_image(user_id, content, attachment_urls)
         elif intent == "RECALL":
             await _handle_recall(user_id, content)

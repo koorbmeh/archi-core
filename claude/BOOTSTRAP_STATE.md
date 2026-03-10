@@ -3,7 +3,7 @@
 # besides source code and session_log/ entries.
 # Keep this file lean — completed items get one line, detail lives in session_log/.
 
-Last updated: 2026-03-10 (session 8 retrospective by Cowork)
+Last updated: 2026-03-10 (session 9 by Cowork)
 
 ---
 
@@ -74,8 +74,10 @@ Starting model (until Archi develops its own selection strategy):
 - [x] src/kernel/capability_registry.py — 81 lines, 9 tests. Session 2.
 - [x] src/kernel/gap_detector.py — 155 lines, 17 tests. Session 2 (+session 7).
 - [x] src/kernel/model_interface.py — 204 lines, 23 tests. Session 3 (+session 6).
-- [x] src/kernel/generation_loop.py — 230 lines, 20 tests. Session 4 (+sessions 6, 7).
+- [x] src/kernel/generation_loop.py — updated, 20 tests. Session 4 (+sessions 6, 7, 9).
 - [x] src/kernel/alignment_gates.py — 173 lines, 29 tests. Session 5.
+- [x] src/kernel/periodic_registry.py — new, 14 tests. Session 9.
+- [x] src/kernel/command_registry.py — new, 15 tests. Session 9.
 
 ### In Progress
 *(nothing — session ended clean)*
@@ -92,12 +94,12 @@ autonomously since session 7. Archi operates as a Discord-connected daemon,
 listening to Jesse, responding conversationally, and building capabilities
 from detected gaps.
 
-**Stats as of 2026-03-10:**
-- 147 commits since session 7 (116 Archi-generated, 31 manual fixes)
-- 49 capability files in capabilities/
-- 161/161 tests passing
+**Stats as of session 9:**
+- 190/190 tests passing
 - Discord integration operational (gateway, listener, notifier)
 - All six dimension trackers built (health, wealth, happiness, agency, capability, synthesis)
+- Periodic task registry: 7 entries (daily trackers + gap sync)
+- Command registry: 6 entries (!scan craigslist, !analyze sheets, !trends, etc.)
 
 To start Archi:
     python run.py --daemon     # Discord-connected continuous operation
@@ -109,15 +111,17 @@ To start Archi:
 
 ## Next Priority
 
-**Generation loop quality.** Archi is self-developing but producing some
-low-quality or nonsensical capabilities. Three patterns need attention:
+**Clean up dead wiring files.** Session 9 fixed the root cause (event_loop.py
+replaced with periodic_registry + command_registry), but 16 orphaned wire_*.py
+and integrate_*.py files remain. These are dead code. Archi or Jesse can
+delete them. Remaining quality issues:
 
-1. **Wire loops** — Archi generates "wire_X" capabilities that just wire a
-   previous capability, then detects that wiring as a new gap, ad infinitum.
+1. **Wire loops** — Root cause fixed in session 9. Planner now directs to
+   periodic_registry/command_registry. `wire_` gaps blocked; `register_` gaps
+   generated instead with proper guidance.
 2. **Hallucinated gap names** — Discord conversation fragments leak into the
    gap detector as capability names (e.g., "guess_couldn_read_file").
-3. **Rebuild loops** — Archi sometimes rebuilds capabilities it already has
-   (image_analysis.py was modified 3 times in quick succession).
+3. **Rebuild loops** — Same capability modified multiple times in succession.
 
 ---
 
@@ -150,8 +154,9 @@ low-quality or nonsensical capabilities. Three patterns need attention:
 
 ## Known Issues / Bug Watch
 
-- **Wire loops:** Archi generates wire_X → wire_wire_X → wire_wire_wire_X
-  capabilities. Partially fixed (745cda0) but pattern may recur.
+- **Wire loops:** Root cause fixed (session 9). event_loop.py deprecated,
+  planner directs to periodic_registry/command_registry. 16 orphaned wire_/
+  integrate_ files remain as dead code — safe to delete.
 - **Hallucinated gaps from Discord:** Conversational fragments become gap names.
   Needs better filtering in gap_detector or discord_listener.
 - **Capability rebuild loops:** Same capability modified multiple times in
@@ -189,3 +194,4 @@ low-quality or nonsensical capabilities. Three patterns need attention:
 - Session 6: 2026-03-09 — Built run.py entry point. Wired gates + cost logging into loop. 106/106 tests passing.
 - Session 7: 2026-03-09 — Failure classification mechanism. Environment vs test vs unknown failures across self_modifier, generation_loop, gap_detector. Windows path fix in alignment_gates.py (Jesse-approved exception). 116/116 tests passing.
 - Session 8: 2026-03-10 — Retrospective. 147 commits since session 7. Archi live and self-developing. Discord integration, 49 capabilities, all 6 dimension trackers. 161/161 tests passing.
+- Session 9: 2026-03-10 — Integration architecture fix. Built periodic_registry + command_registry. Deprecated event_loop.py. Updated planner prompts + reachability checker. 190/190 tests passing.

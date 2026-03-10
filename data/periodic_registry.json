@@ -1,0 +1,44 @@
+{
+  "daily_health_tracker": {
+    "module": "capabilities.daily_health_tracker",
+    "coroutine": "daily_health_coro",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "daily_happiness_tracker": {
+    "module": "capabilities.daily_happiness_tracker",
+    "coroutine": "daily_prompt_coro",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "daily_agency_tracker": {
+    "module": "capabilities.daily_agency_tracker",
+    "coroutine": "daily_prompt_coro",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "daily_capability_tracker": {
+    "module": "capabilities.daily_capability_tracker",
+    "coroutine": "daily_prompt_coro",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "daily_wealth_tracker": {
+    "module": "capabilities.daily_wealth_tracker",
+    "coroutine": "send_daily_prompt",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "daily_action_recommender": {
+    "module": "capabilities.daily_action_recommender",
+    "coroutine": "daily_recommendation_coro",
+    "interval_seconds": 86400,
+    "enabled": true
+  },
+  "gap_logging_sync": {
+    "module": "capabilities.gap_logging_sync",
+    "coroutine": "_periodic_sync_task",
+    "interval_seconds": 300,
+    "enabled": true
+  }
+}

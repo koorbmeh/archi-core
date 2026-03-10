@@ -53,6 +53,8 @@ PROTECTED_FILES: set[str] = {
     "src/kernel/capability_registry.py",
     "src/kernel/model_interface.py",
     "src/kernel/alignment_gates.py",
+    "src/kernel/periodic_registry.py",
+    "src/kernel/command_registry.py",
 }
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -88,7 +90,26 @@ PLAN_SYSTEM = (
     "capabilities/discord_gateway.py, capabilities/discord_notifier.py, "
     "capabilities/event_loop.py, and ALL files under src/kernel/. If a gap "
     "requires wiring into one of these files, the approach should describe "
-    "what import/call to add, but the file_path MUST be a NEW file in capabilities/."
+    "what import/call to add, but the file_path MUST be a NEW file in capabilities/.\n\n"
+    "INTEGRATION RULE — THIS IS CRITICAL:\n"
+    "capabilities/event_loop.py is DEPRECATED and must NEVER be used as an "
+    "integration target. Do NOT import EventLoop, do NOT call "
+    "integrate_with_event_loop(), do NOT reference event_loop in any way.\n"
+    "Instead, there are two integration mechanisms:\n"
+    "  1. PERIODIC TASKS (runs on a schedule): The capability should expose an "
+    "async coroutine function. The approach should state that the capability "
+    "needs a periodic_registry entry, and include in the approach: "
+    "'Register in data/periodic_registry.json via "
+    "src.kernel.periodic_registry.register(name, module, coroutine, interval_seconds)'. "
+    "The capability file itself should call periodic_registry.register() at "
+    "module level or in an initialize() function.\n"
+    "  2. ON-DEMAND COMMANDS (triggered by Jesse via Discord !command): The "
+    "capability should expose a callable function. The approach should state: "
+    "'Register in data/command_registry.json via "
+    "src.kernel.command_registry.register(command, module, function, description)'. "
+    "The capability file itself should call command_registry.register() at "
+    "module level or in an initialize() function.\n"
+    "Do NOT create wire_*.py or integrate_*.py files. These are dead code patterns."
 )
 
 GENERATE_SYSTEM = (
@@ -100,7 +121,12 @@ GENERATE_SYSTEM = (
     "PATH RULE: Capability files live in `capabilities/` (e.g. `capabilities/foo.py`). "
     "Imports from kernel use `from src.kernel.<module> import ...`. "
     "Imports from other capabilities use `from capabilities.<module> import ...`. "
-    "NEVER use `src/capabilities/` — that directory does not exist."
+    "NEVER use `src/capabilities/` — that directory does not exist.\n\n"
+    "INTEGRATION RULE: NEVER import from capabilities.event_loop — it is deprecated. "
+    "For periodic execution, call src.kernel.periodic_registry.register() in the "
+    "module's initialize() function. For on-demand execution via Discord, call "
+    "src.kernel.command_registry.register() in initialize(). Do NOT create "
+    "wire_*.py or integrate_*.py wrapper files."
 )
 
 
@@ -534,38 +560,30 @@ def _check_reachability(
 ) -> None:
     """Check whether a newly registered capability is reachable.
 
-    Scans all other capability files and key entry points (run.py,
-    discord_listener) for imports or references to the new module.
-    If nothing references it, log a wiring gap so Archi modifies an
-    existing entry-point file to import and use the new capability.
+    A capability is reachable if ANY of these are true:
+      1. Another capability file or entry point imports/references it.
+      2. It is registered in periodic_registry.json (will be run by ArchiDaemon).
+      3. It is registered in command_registry.json (triggerable via !command).
 
-    IMPORTANT: The wiring gap instructs the planner to MODIFY an existing
-    file (discord_listener.py, run.py, etc.) — NOT create a new wire_X.py
-    file. Creating a new wrapper file would itself be unreachable, causing
-    an infinite wire_wire_wire_... loop.
+    If unreachable, logs a guidance gap pointing to periodic_registry or
+    command_registry — NOT a wire_X file (those are dead code).
     """
-    # Hard guard: never check reachability for wire_ capabilities.
-    # If a capability name starts with "wire_", it IS the wiring fix —
-    # checking its reachability would create wire_wire_ and loop forever.
-    if cap.name.startswith("wire_"):
-        logger.debug("Skipping reachability check for wiring capability: %s", cap.name)
+    # Skip reachability for wire_ and integrate_ capabilities — legacy dead code
+    if cap.name.startswith(("wire_", "integrate_")):
+        logger.debug("Skipping reachability check for legacy wiring: %s", cap.name)
         return
 
-    cap_module_stem = Path(cap.module).stem  # e.g. "image_vision"
+    cap_module_stem = Path(cap.module).stem
 
-    # Directories to scan for references
+    # Check 1: Is it referenced by another file?
     scan_dirs = [Path("capabilities"), Path("src/kernel")]
     entry_points = [Path("run.py")]
-
     files_to_scan: list[Path] = list(entry_points)
     for d in scan_dirs:
         if d.is_dir():
             files_to_scan.extend(d.glob("*.py"))
-
-    # Don't count the capability's own file as a reference
     own_path = Path(cap.module)
 
-    found_reference = False
     for fpath in files_to_scan:
         if not fpath.exists() or fpath == own_path:
             continue
@@ -573,27 +591,41 @@ def _check_reachability(
             content = fpath.read_text(encoding="utf-8")
         except OSError:
             continue
-        # Check for import or string reference to the module
         if cap_module_stem in content:
-            found_reference = True
-            break
+            return  # referenced — reachable
 
-    if not found_reference:
-        wiring_gap = f"wire_{cap.name}"
-        detail = (
-            f"Capability '{cap.name}' ({cap.module}) was built and tests pass, "
-            f"but nothing imports or references it. Jesse cannot benefit from "
-            f"it until it is wired into an active pathway.\n\n"
-            f"WIRING RULE: Create a NEW integration file in capabilities/ "
-            f"(e.g. capabilities/integrate_{cap.name}.py) that imports both "
-            f"the new capability and whatever entry point needs it, then "
-            f"provides a thin bridge function. Do NOT create a wire_X.py file. "
-            f"Do NOT modify protected files (run.py, discord_listener.py, "
-            f"discord_gateway.py, event_loop.py, or any src/kernel/ file) — "
-            f"writes to those will be blocked."
-        )
-        logger.warning("Reachability check: %s is not wired into any pathway.", cap.name)
-        _log_operation(
-            "reachability_check_failed", False,
-            detail=detail, missing_cap=wiring_gap, log_path=op_log,
-        )
+    # Check 2: Is it in periodic_registry.json?
+    try:
+        from src.kernel.periodic_registry import load_registry as load_periodic
+        for entry in load_periodic():
+            if cap.name == entry.name or cap_module_stem in entry.module:
+                return  # registered as periodic — reachable
+    except Exception:
+        pass
+
+    # Check 3: Is it in command_registry.json?
+    try:
+        from src.kernel.command_registry import load_registry as load_cmds
+        for entry in load_cmds():
+            if cap_module_stem in entry.module:
+                return  # registered as command — reachable
+    except Exception:
+        pass
+
+    # Not reachable — log a guidance gap (NOT a wire_ gap)
+    detail = (
+        f"Capability '{cap.name}' ({cap.module}) was built and tests pass, "
+        f"but is not reachable. To make it reachable, the capability should "
+        f"self-register using one of these mechanisms:\n"
+        f"  - Periodic: call src.kernel.periodic_registry.register() in "
+        f"its initialize() function\n"
+        f"  - On-demand: call src.kernel.command_registry.register() in "
+        f"its initialize() function\n"
+        f"Do NOT create wire_*.py or integrate_*.py files. Do NOT import "
+        f"from capabilities.event_loop (deprecated)."
+    )
+    logger.warning("Reachability: %s is not wired into any pathway.", cap.name)
+    _log_operation(
+        "reachability_check_failed", False,
+        detail=detail, missing_cap=f"register_{cap.name}", log_path=op_log,
+    )

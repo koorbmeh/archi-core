@@ -1,0 +1,38 @@
+{
+  "scan craigslist": {
+    "module": "capabilities.craigslist_pet_scanner",
+    "function": "get_scanner().periodic_scan_coro",
+    "description": "Scan Craigslist pet listings now",
+    "is_async": true
+  },
+  "analyze sheets": {
+    "module": "capabilities.google_sheets_analyzer",
+    "function": "analyze_sheets",
+    "description": "Analyze connected Google Sheets data",
+    "is_async": false
+  },
+  "analyze bills": {
+    "module": "capabilities.google_sheets_bills_analyzer",
+    "function": "analyze_bills",
+    "description": "Analyze bills and expenses from Google Sheets",
+    "is_async": false
+  },
+  "trends": {
+    "module": "capabilities.dimension_trend_analyzer",
+    "function": "initialize().analyze_coro",
+    "description": "Run dimension trend analysis",
+    "is_async": true
+  },
+  "weekly report": {
+    "module": "capabilities.weekly_dimension_synthesis",
+    "function": "weekly_report_sync",
+    "description": "Generate weekly dimension synthesis report",
+    "is_async": false
+  },
+  "help": {
+    "module": "src.kernel.command_registry",
+    "function": "list_commands_text",
+    "description": "Show available commands",
+    "is_async": false
+  }
+}

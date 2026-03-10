@@ -35,6 +35,7 @@ load_dotenv()
 
 from src.kernel.capability_registry import Capability, CapabilityRegistry
 from src.kernel.generation_loop import CycleResult, run_cycle, format_cycle_notification, _notify_cycle_result
+from src.kernel.periodic_registry import load_registry, resolve_coroutine, run_periodic
 
 LOG_LEVEL = os.environ.get("ARCHI_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -265,10 +266,32 @@ class ArchiDaemon:
                 except Exception as exc:
                     logger.warning("Self-evaluator failed: %s", exc)
 
+    # --- Periodic capability tasks ---
+
+    def _start_periodic_tasks(self) -> list[asyncio.Task]:
+        """Load periodic_registry.json and launch an asyncio task for each enabled entry."""
+        tasks: list[asyncio.Task] = []
+        entries = load_registry()
+        for entry in entries:
+            if not entry.enabled:
+                logger.info("Periodic task '%s' is disabled — skipping.", entry.name)
+                continue
+            coro_fn = resolve_coroutine(entry)
+            if coro_fn is None:
+                logger.warning("Could not resolve periodic task '%s' — skipping.", entry.name)
+                continue
+            task = asyncio.create_task(
+                run_periodic(entry, coro_fn),
+                name=f"archi_periodic_{entry.name}",
+            )
+            tasks.append(task)
+            logger.info("Launched periodic task: %s", entry.name)
+        return tasks
+
     # --- Lifecycle ---
 
     async def start(self) -> None:
-        """Start the daemon: launch Discord gateway + both async tasks."""
+        """Start the daemon: launch Discord gateway + core + periodic tasks."""
         self._running = True
         logger.info("ArchiDaemon starting up")
 
@@ -280,13 +303,20 @@ class ArchiDaemon:
         except Exception as exc:
             logger.warning("Could not start Discord gateway: %s", exc)
 
-        # Launch parallel tasks
+        # Launch core tasks
         self._tasks = [
             asyncio.create_task(self._message_task(), name="archi_message_task"),
             asyncio.create_task(self._generation_task(), name="archi_generation_task"),
         ]
 
-        logger.info("ArchiDaemon running — message task + generation task active")
+        # Launch periodic capability tasks from registry
+        periodic_tasks = self._start_periodic_tasks()
+        self._tasks.extend(periodic_tasks)
+
+        logger.info(
+            "ArchiDaemon running — message + generation + %d periodic task(s) active",
+            len(periodic_tasks),
+        )
 
         # Wait until cancelled or stopped
         try:
