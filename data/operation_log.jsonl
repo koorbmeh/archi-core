@@ -75,3 +75,12 @@
 {"event": "cycle_no_gaps", "success": true}
 {"event": "feature_request", "success": false, "missing_capability": "discord_gateway", "detail": "Archi can send Discord DMs but cannot receive messages from Jesse. Needs a Discord bot gateway (WebSocket) connection to listen for incoming messages and respond. The bot token DISCORD_BOT_TOKEN is already available in the environment. Use the Discord Gateway API to maintain a persistent WebSocket connection, receive MESSAGE_CREATE events for the DM channel, and route them to Archi for processing."}
 {"event": "message_receive_attempt", "success": false, "missing_capability": "discord_listener", "detail": "Archi can send Discord DMs via REST API but cannot receive messages from Jesse. Receiving Discord messages requires a persistent WebSocket connection to Discord's gateway (wss://gateway.discord.gg). The discord.py library handles this natively via commands.Bot. DISCORD_BOT_TOKEN is available. Jesse's messages should trigger Archi's generation loop or allow Jesse to give Archi direct instructions."}
+{"event": "gap_selected", "success": true, "detail": "discord_gateway"}
+{"event": "plan_created", "success": true, "detail": "capabilities/discord_gateway.py"}
+{"event": "code_generated", "success": true, "detail": "8524 chars"}
+{"event": "capability_integrated", "success": true, "detail": "discord_gateway"}
+{"event": "gap_selected", "success": true, "detail": "discord_listener"}
+{"event": "plan_created", "success": true, "detail": "src/capabilities/discord_listener.py"}
+{"event": "code_generated", "success": true, "detail": "8214 chars"}
+{"event": "capability_integrated", "success": true, "detail": "discord_listener"}
+{"event": "cycle_no_gaps", "success": true}

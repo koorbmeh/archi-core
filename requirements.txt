@@ -15,5 +15,9 @@ pytest-asyncio>=0.23.0
 # Environment
 python-dotenv>=1.0.0
 
+# HTTP / Discord
+aiohttp>=3.9.0
+discord.py>=2.0.0
+
 # Utilities
 pathlib2>=2.3.0; python_version < "3.4"

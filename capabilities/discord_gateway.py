@@ -30,14 +30,14 @@ _bot_client: Optional["ArchiBotClient"] = None
 
 
 def _get_target_user_id() -> int:
-    """Resolve the target Discord user ID from environment or config."""
-    raw = os.environ.get("DISCORD_TARGET_USER_ID", "")
+    """Resolve the target Discord user ID from environment."""
+    raw = os.environ.get("JESSE_DISCORD_ID", "")
     if raw:
         try:
             return int(raw)
         except ValueError:
-            logger.warning("DISCORD_TARGET_USER_ID is not a valid integer: %s", raw)
-    logger.warning("DISCORD_TARGET_USER_ID not set; DM filtering will be disabled")
+            logger.warning("JESSE_DISCORD_ID is not a valid integer: %s", raw)
+    logger.warning("JESSE_DISCORD_ID not set; DM filtering will be disabled")
     return 0
 
 
@@ -129,17 +129,17 @@ def _default_receive_fn(content: str, user_id: str) -> None:
 
 
 def _resolve_receive_fn():
-    """Attempt to import user_communication.receive_message; fall back to default."""
+    """Attempt to import discord_listener.receive_message; fall back to default."""
     try:
         import importlib
-        mod = importlib.import_module("capabilities.user_communication")
+        mod = importlib.import_module("capabilities.discord_listener")
         fn = getattr(mod, "receive_message", None)
         if callable(fn):
-            logger.info("Resolved user_communication.receive_message")
+            logger.info("Resolved discord_listener.receive_message")
             return fn
-        logger.warning("user_communication.receive_message not found; using default handler")
+        logger.warning("discord_listener.receive_message not found; using default handler")
     except ImportError:
-        logger.warning("user_communication module not available; using default handler")
+        logger.warning("discord_listener module not available; using default handler")
     return _default_receive_fn
 
 

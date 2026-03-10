@@ -180,9 +180,24 @@ class ArchiDaemon:
         self._logger = logging.getLogger("archi.daemon")
 
     def _run_wake_cycle(self) -> None:
-        """Run up to max_cycles_per_wake cycles in one wake period."""
+        """Run up to max_cycles_per_wake cycles in one wake period.
+
+        Also drains any pending Discord messages from the listener queue.
+        """
         clean_stale_git_locks()
         reset_session()
+
+        # Process any pending Discord messages from Jesse
+        try:
+            from capabilities.discord_listener import process_pending
+            import asyncio
+            count = asyncio.get_event_loop().run_until_complete(
+                process_pending(REPO_ROOT, self.registry)
+            )
+            if count:
+                self._logger.info("Processed %d pending Discord message(s).", count)
+        except Exception as exc:
+            self._logger.debug("Discord listener poll: %s", exc)
 
         for cycle_num in range(1, self.max_cycles_per_wake + 1):
             self._logger.info("--- Wake cycle %d of %d ---", cycle_num, self.max_cycles_per_wake)
@@ -225,6 +240,15 @@ class ArchiDaemon:
             cap_count, self.interval,
         )
 
+        # Start Discord gateway so Archi can receive DMs from Jesse
+        try:
+            from capabilities.discord_gateway import start_gateway, stop_gateway
+            start_gateway()
+            self._logger.info("Discord gateway started — listening for DMs.")
+        except Exception as exc:
+            self._logger.warning("Could not start Discord gateway: %s", exc)
+            stop_gateway = None  # type: ignore[assignment]
+
         try:
             while self._running:
                 self._run_wake_cycle()
@@ -238,6 +262,12 @@ class ArchiDaemon:
                     await asyncio.sleep(1)
         finally:
             _discord_notify("Archi going offline.")
+            # Stop Discord gateway
+            try:
+                from capabilities.discord_gateway import stop_gateway
+                await stop_gateway()
+            except Exception:
+                pass
             # Close the discord notifier's aiohttp session cleanly
             try:
                 from capabilities.discord_notifier import shutdown as _discord_shutdown

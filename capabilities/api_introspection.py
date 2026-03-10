@@ -209,13 +209,48 @@ def summarize_kernel() -> str:
     return "\n\n".join(sections)
 
 
+def _scan_env_vars() -> str:
+    """Scan capability modules for os.environ references and list known env vars.
+
+    Rather than trying to parse source, we maintain a curated list of
+    environment variables that Archi's capabilities use. This ensures
+    generated code references the correct env var names.
+    """
+    env_vars = {
+        "DISCORD_BOT_TOKEN": "Discord bot authentication token",
+        "JESSE_DISCORD_ID": "Jesse's Discord user ID for DM targeting",
+        "ARCHI_LOG_LEVEL": "Logging level override (default: INFO)",
+    }
+    # Also scan .env file for additional keys if it exists
+    try:
+        from pathlib import Path
+        env_file = Path(".env")
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key = line.split("=", 1)[0].strip()
+                if key and key not in env_vars:
+                    env_vars[key] = "(from .env)"
+    except Exception:
+        pass
+    if not env_vars:
+        return ""
+    lines = ["## Environment variables"]
+    for key, desc in sorted(env_vars.items()):
+        lines.append(f"  {key}  # {desc}")
+    return "\n".join(lines)
+
+
 def build_api_context(registry: Optional[CapabilityRegistry] = None) -> str:
     """
     Build the full API context string for injection into planner/codegen prompts.
 
-    Combines kernel module APIs and registered capability APIs into a single
-    block that shows Archi (and the models it calls) what real functions exist,
-    their exact signatures, and what they do.
+    Combines kernel module APIs, registered capability APIs, and known
+    environment variables into a single block that shows Archi (and the
+    models it calls) what real functions exist, their exact signatures,
+    and what they do.
 
     Args:
         registry: Optional registry instance.
@@ -230,6 +265,9 @@ def build_api_context(registry: Optional[CapabilityRegistry] = None) -> str:
     caps = summarize_all(registry)
     if caps:
         parts.append("# Registered capabilities\n" + caps)
+    env = _scan_env_vars()
+    if env:
+        parts.append("# Environment\n" + env)
     if not parts:
         return ""
     return "\n\n".join(parts)
