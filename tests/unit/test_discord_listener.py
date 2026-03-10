@@ -87,22 +87,26 @@ class TestProfileInjection:
         profile_path = tmp_path / "personal_profile.json"
         profile_path.write_text(json.dumps(profile), encoding="utf-8")
 
-        captured_prompt = {}
+        captured_prompts = []
 
         def mock_call_model(prompt, system=None):
-            captured_prompt["prompt"] = prompt
-            captured_prompt["system"] = system
+            captured_prompts.append(prompt)
             return _make_response("Hello Jesse!")
+
+        mock_mgr = MagicMock()
 
         with patch("capabilities.discord_listener.PROFILE_PATH", profile_path), \
              patch("capabilities.discord_listener.store_message"), \
              patch("capabilities.discord_listener.get_context", return_value=""), \
              patch("capabilities.discord_listener.notify_async", new_callable=AsyncMock), \
-             patch("src.kernel.model_interface.call_model", mock_call_model):
+             patch("src.kernel.model_interface.call_model", mock_call_model), \
+             patch("capabilities.personal_profile_manager.get_manager", return_value=mock_mgr):
             _run_async(_handle_conversation("user123", "Hello Archi"))
 
-        assert "McFarland" in captured_prompt["prompt"]
-        assert "self-reported" in captured_prompt["prompt"].lower()
+        # The first call is the conversation prompt
+        assert len(captured_prompts) >= 1
+        assert "McFarland" in captured_prompts[0]
+        assert "self-reported" in captured_prompts[0].lower()
 
 
 # --- Fix 3: Build notification bleed ---
@@ -239,3 +243,132 @@ class TestPrereqConfirmHandler:
 
         assert len(sent_messages) == 1
         assert "don't have any pending" in sent_messages[0].lower()
+
+
+# --- Profile write-through ---
+
+class TestProfileWriteThrough:
+    """_handle_conversation must call personal_profile_manager.update_profile."""
+
+    def test_update_profile_called_after_conversation(self):
+        """After every conversation exchange, update_profile should be called."""
+        from capabilities.discord_listener import _handle_conversation
+
+        def mock_call_model(prompt, system=None):
+            return _make_response("Sure thing Jesse!")
+
+        update_calls = []
+        mock_mgr = MagicMock()
+        mock_mgr.update_profile = MagicMock(
+            side_effect=lambda msg, reply="": update_calls.append((msg, reply))
+        )
+
+        with patch("capabilities.discord_listener.store_message"), \
+             patch("capabilities.discord_listener.get_context", return_value=""), \
+             patch("capabilities.discord_listener.notify_async", new_callable=AsyncMock), \
+             patch("capabilities.discord_listener.PROFILE_PATH", Path("/nonexistent")), \
+             patch("src.kernel.model_interface.call_model", mock_call_model), \
+             patch("capabilities.personal_profile_manager.get_manager", return_value=mock_mgr):
+            _run_async(_handle_conversation("user123", "I live in McFarland WI"))
+
+        assert len(update_calls) == 1
+        assert update_calls[0][0] == "I live in McFarland WI"
+        assert update_calls[0][1] == "Sure thing Jesse!"
+
+    def test_profile_writethrough_failure_does_not_crash(self):
+        """If update_profile raises, conversation should still succeed."""
+        from capabilities.discord_listener import _handle_conversation
+
+        def mock_call_model(prompt, system=None):
+            return _make_response("Hello!")
+
+        sent_messages = []
+
+        async def mock_notify(msg):
+            sent_messages.append(msg)
+
+        with patch("capabilities.discord_listener.store_message"), \
+             patch("capabilities.discord_listener.get_context", return_value=""), \
+             patch("capabilities.discord_listener.notify_async", side_effect=mock_notify), \
+             patch("capabilities.discord_listener.PROFILE_PATH", Path("/nonexistent")), \
+             patch("src.kernel.model_interface.call_model", mock_call_model), \
+             patch("capabilities.personal_profile_manager.get_manager",
+                   side_effect=RuntimeError("profile broken")):
+            _run_async(_handle_conversation("user123", "test"))
+
+        # Conversation reply should still be sent
+        assert len(sent_messages) == 1
+        assert sent_messages[0] == "Hello!"
+
+
+class TestUpdateProfileMethod:
+    """Tests for PersonalProfileManager.update_profile."""
+
+    def test_update_profile_extracts_facts(self, tmp_path):
+        from capabilities.personal_profile_manager import PersonalProfileManager
+
+        profile_path = tmp_path / "profile.json"
+        profile_path.write_text('{"location": "", "skills": []}')
+
+        mgr = PersonalProfileManager(profile_path=profile_path)
+
+        def mock_call_model(prompt, system=None):
+            return _make_response('{"location": "McFarland, WI"}')
+
+        with patch("capabilities.personal_profile_manager.call_model", mock_call_model):
+            mgr.update_profile("I live in McFarland WI", "Got it!")
+
+        assert mgr.profile["location"] == "McFarland, WI"
+        # Should be persisted
+        saved = json.loads(profile_path.read_text())
+        assert saved["location"] == "McFarland, WI"
+
+    def test_update_profile_empty_delta_does_nothing(self, tmp_path):
+        from capabilities.personal_profile_manager import PersonalProfileManager
+
+        profile_path = tmp_path / "profile.json"
+        profile_path.write_text('{"location": "WI", "skills": ["python"]}')
+
+        mgr = PersonalProfileManager(profile_path=profile_path)
+
+        def mock_call_model(prompt, system=None):
+            return _make_response("{}")
+
+        with patch("capabilities.personal_profile_manager.call_model", mock_call_model):
+            mgr.update_profile("What's the weather?", "I'm not sure.")
+
+        assert mgr.profile["location"] == "WI"
+        assert mgr.profile["skills"] == ["python"]
+
+    def test_update_profile_list_deduplication(self, tmp_path):
+        from capabilities.personal_profile_manager import PersonalProfileManager
+
+        profile_path = tmp_path / "profile.json"
+        profile_path.write_text('{"skills": ["python"]}')
+
+        mgr = PersonalProfileManager(profile_path=profile_path)
+
+        def mock_call_model(prompt, system=None):
+            return _make_response('{"skills": ["python", "accounting"]}')
+
+        with patch("capabilities.personal_profile_manager.call_model", mock_call_model):
+            mgr.update_profile("I also know accounting")
+
+        assert mgr.profile["skills"] == ["python", "accounting"]
+
+    def test_update_profile_handles_model_error(self, tmp_path):
+        from capabilities.personal_profile_manager import PersonalProfileManager
+
+        profile_path = tmp_path / "profile.json"
+        profile_path.write_text('{"location": "WI"}')
+
+        mgr = PersonalProfileManager(profile_path=profile_path)
+
+        def mock_call_model(prompt, system=None):
+            raise RuntimeError("API down")
+
+        with patch("capabilities.personal_profile_manager.call_model", mock_call_model):
+            mgr.update_profile("I moved to NY")  # Should not raise
+
+        # Profile should be unchanged
+        assert mgr.profile["location"] == "WI"

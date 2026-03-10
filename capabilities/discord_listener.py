@@ -413,6 +413,14 @@ async def _handle_conversation(user_id: str, content: str) -> None:
     await notify_async(reply)
     store_message(user_id, reply, role="assistant")
 
+    # Write-through: extract profile-worthy facts from this exchange
+    try:
+        from capabilities.personal_profile_manager import get_manager
+        mgr = get_manager()
+        mgr.update_profile(content, reply)
+    except Exception as exc:
+        logger.debug("Profile write-through failed (non-fatal): %s", exc)
+
 
 # ---------------------------------------------------------------------------
 # Message processing (called by ArchiDaemon's message task)

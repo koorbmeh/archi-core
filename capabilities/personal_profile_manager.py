@@ -59,6 +59,59 @@ Respond with ONLY valid JSON profile:"""
         except Exception:
             pass
 
+    def update_profile(self, user_message: str, assistant_reply: str = "") -> None:
+        """Extract profile-worthy facts from a single exchange and merge them.
+
+        This is designed to be called after every conversation turn so that
+        Jesse's profile stays up to date in real time rather than waiting for
+        the hourly periodic_update.
+        """
+        exchange = f"Jesse: {user_message}"
+        if assistant_reply:
+            exchange += f"\nArchi: {assistant_reply}"
+
+        prompt = (
+            "You are a profile extraction assistant.  Given the conversation "
+            "exchange below and Jesse's current profile, output ONLY a JSON "
+            "object containing fields that should be ADDED or UPDATED.  If "
+            "there is nothing new to save, respond with exactly: {}\n\n"
+            "Rules:\n"
+            "- Only extract concrete, self-reported facts (location, employer, "
+            "financial details, pets, goals, preferences, etc.).\n"
+            "- Do NOT remove existing fields — only add or update.\n"
+            "- Keep values concise.\n\n"
+            f"Current profile:\n{json.dumps(self.profile, indent=2)}\n\n"
+            f"Exchange:\n{exchange}\n\n"
+            "JSON delta (or empty object {{}}):"
+        )
+        try:
+            resp = call_model(prompt)
+            raw = resp.text.strip()
+            # Strip markdown fences if present
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            delta = json.loads(raw)
+            if not delta or not isinstance(delta, dict):
+                return
+            # Deep-merge: for dict values, update in place; for lists, extend
+            for key, value in delta.items():
+                existing = self.profile.get(key)
+                if isinstance(existing, dict) and isinstance(value, dict):
+                    existing.update(value)
+                elif isinstance(existing, list) and isinstance(value, list):
+                    # Deduplicate
+                    for item in value:
+                        if item not in existing:
+                            existing.append(item)
+                else:
+                    self.profile[key] = value
+            self._save()
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).debug(
+                "Profile update_profile failed (non-fatal): %s", exc
+            )
+
     def detect_gaps(self) -> List[str]:
         required = ["location", "skills", "job_details", "preferences", "goals"]
         gaps = []

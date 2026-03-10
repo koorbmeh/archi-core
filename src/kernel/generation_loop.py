@@ -113,24 +113,30 @@ class CycleResult:
     change: Optional[ChangeResult] = None
     capability_registered: bool = False
     error: Optional[str] = None
+    pending_notifications: Optional[list] = None  # DMs to send (under lock)
 
 
 def format_cycle_notification(result: "CycleResult") -> Optional[str]:
-    """Build the notification string for a cycle outcome.
+    """Build the Discord DM notification string for a cycle outcome.
 
     Returns None if the cycle was uneventful (no gaps, nothing built).
     The caller is responsible for actually sending the message.
+
+    NOTE: This text is sent as a Discord DM to Jesse. It must NEVER contain
+    the ``[build]`` prefix — that was an internal log marker that caused
+    notification bleed when Discord visually grouped it with conversation
+    replies.
     """
     if result.capability_registered and result.gap:
         desc = ""
         if result.plan:
             desc = result.plan.get("description", "")
         if desc:
-            return f"[build] Built **{result.gap.name}** — {desc}"
-        return f"[build] Built **{result.gap.name}**."
+            return f"Built **{result.gap.name}** — {desc}"
+        return f"Built **{result.gap.name}**."
     if result.error and result.gap:
         return (
-            f"[build] Tried to build **{result.gap.name}** but hit an issue "
+            f"Tried to build **{result.gap.name}** but hit an issue "
             f"at the {result.phase_reached} phase: {result.error[:150]}"
         )
     return None
@@ -336,6 +342,7 @@ def run_cycle(
     if prerequisites and not _prerequisites_confirmed(gap.name, op_log):
         # Only DM Jesse if we haven't already asked (avoid spamming).
         already_asked = _prerequisite_already_asked(gap.name, op_log)
+        notifications: list[str] = []
         if not already_asked:
             prereq_text = "\n".join(f"  • {p}" for p in prerequisites)
             dm_msg = (
@@ -350,16 +357,14 @@ def run_cycle(
                 missing_cap=gap.name,
                 log_path=op_log,
             )
-            try:
-                _discord_notify(dm_msg)
-            except Exception as exc:
-                logger.debug("Prerequisite DM failed (non-fatal): %s", exc)
+            notifications.append(dm_msg)
         logger.info(
             "Skipping %s — waiting for Jesse to confirm prerequisites.", gap.name,
         )
         return CycleResult(
             phase_reached="plan", gap=gap, plan=plan,
             error=f"Waiting for Jesse to confirm prerequisites for {gap.name}",
+            pending_notifications=notifications or None,
         )
 
     # --- Phase 3: Generate Code (pre-flight gate check) ---

@@ -166,13 +166,24 @@ class ArchiDaemon:
                 lambda: run_cycle(REPO_PATH, self.registry, self.log_path),
             )
 
-            # Send cycle notification while still holding the lock.
-            # This guarantees the "[build]" message is fully sent before
+            # Send all notifications while still holding the lock.
+            # This guarantees build messages are fully sent before
             # the message task can process a conversation and send a reply.
+            from capabilities.discord_notifier import notify_async
+
+            # First, send any pending notifications (e.g. prerequisite DMs)
+            # that run_cycle accumulated instead of sending directly.
+            if result.pending_notifications:
+                for pending_msg in result.pending_notifications:
+                    try:
+                        await notify_async(pending_msg)
+                    except Exception as exc:
+                        logger.debug("Pending notification failed (non-fatal): %s", exc)
+
+            # Then send the cycle-result notification.
             msg = format_cycle_notification(result)
             if msg:
                 try:
-                    from capabilities.discord_notifier import notify_async
                     await notify_async(msg)
                 except Exception as exc:
                     logger.debug("Cycle notification failed (non-fatal): %s", exc)
@@ -318,6 +329,14 @@ def run_single_cycle(dry_run: bool = False) -> None:
     result = run_cycle(REPO_PATH, registry, DEFAULT_OP_LOG)
 
     # Single-cycle mode: sync notification is fine (no concurrency)
+    # Send any pending notifications first (e.g. prerequisite DMs)
+    if result.pending_notifications:
+        for pending_msg in result.pending_notifications:
+            try:
+                from capabilities.discord_notifier import notify as _notify_sync
+                _notify_sync(pending_msg)
+            except Exception:
+                pass
     msg = format_cycle_notification(result)
     if msg:
         _notify_cycle_result(result)

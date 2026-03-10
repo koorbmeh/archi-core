@@ -14,6 +14,7 @@ from src.kernel.generation_loop import (
     _log_operation,
     _parse_plan,
     _prerequisites_confirmed,
+    format_cycle_notification,
     run_cycle,
 )
 from src.kernel.model_interface import BudgetExceededError, ModelResponse
@@ -672,8 +673,6 @@ class TestPrerequisiteSkipsGeneration:
     """When a plan has prerequisites, run_cycle should skip and DM Jesse."""
 
     def test_cycle_skips_with_prerequisites(self, tmp_path):
-        from unittest.mock import patch as mock_patch
-
         registry = CapabilityRegistry(path=tmp_path / "reg.json")
         op_log = tmp_path / "ops.jsonl"
 
@@ -692,22 +691,20 @@ class TestPrerequisiteSkipsGeneration:
         def gen_fn(prompt, system=None):
             return _make_response(VALID_CODE)
 
-        notify_calls = []
-
-        with mock_patch("src.kernel.generation_loop._discord_notify",
-                        side_effect=lambda msg: notify_calls.append(msg)):
-            result = run_cycle(
-                repo_path="/fake", registry=registry,
-                log_path=op_log,
-                plan_fn=plan_fn, generate_fn=gen_fn,
-            )
+        result = run_cycle(
+            repo_path="/fake", registry=registry,
+            log_path=op_log,
+            plan_fn=plan_fn, generate_fn=gen_fn,
+        )
 
         assert result.phase_reached == "plan"
         assert "prerequisites" in (result.error or "").lower()
-        # Should have DM'd Jesse
-        assert len(notify_calls) == 1
-        assert "gspread" in notify_calls[0]
-        assert "ready" in notify_calls[0].lower() or "done" in notify_calls[0].lower()
+        # DMs are now returned in pending_notifications instead of sent directly
+        assert result.pending_notifications is not None
+        assert len(result.pending_notifications) == 1
+        assert "gspread" in result.pending_notifications[0]
+        assert "ready" in result.pending_notifications[0].lower() or \
+               "done" in result.pending_notifications[0].lower()
         # Should have logged prerequisite_pending
         log_lines = op_log.read_text().strip().splitlines()
         pending = [json.loads(l) for l in log_lines
@@ -768,3 +765,66 @@ class TestPrerequisiteSkipsGeneration:
         )
         # Should have proceeded past plan phase (into generate or integrate)
         assert result.phase_reached == "integrate"
+
+
+class TestNoBuildPrefixInNotifications:
+    """format_cycle_notification must never include [build] in DM text."""
+
+    def test_success_notification_no_build_prefix(self):
+        gap = Gap(name="google_sheets_analyzer", priority=0.8,
+                  reason="need sheets", source="operational")
+        result = CycleResult(
+            phase_reached="integrate", gap=gap,
+            plan={"description": "Reads Google Sheets for Jesse."},
+            capability_registered=True,
+        )
+        msg = format_cycle_notification(result)
+        assert msg is not None
+        assert not msg.startswith("[build]"), \
+            f"DM notification must not start with [build]: {msg!r}"
+        assert "google_sheets_analyzer" in msg
+
+    def test_error_notification_no_build_prefix(self):
+        gap = Gap(name="sheets_cap", priority=0.8,
+                  reason="need sheets", source="operational")
+        result = CycleResult(
+            phase_reached="plan", gap=gap,
+            error="Model call failed",
+        )
+        msg = format_cycle_notification(result)
+        assert msg is not None
+        assert not msg.startswith("[build]"), \
+            f"DM notification must not start with [build]: {msg!r}"
+
+    def test_no_notification_when_no_gap(self):
+        result = CycleResult(phase_reached="observe")
+        assert format_cycle_notification(result) is None
+
+    def test_prerequisite_dm_returned_not_sent(self, tmp_path):
+        """Prerequisite DMs should be in pending_notifications, not sent directly."""
+        registry = CapabilityRegistry(path=tmp_path / "reg.json")
+        op_log = tmp_path / "ops.jsonl"
+
+        plan_with_prereqs = json.dumps({
+            "file_path": "capabilities/foo.py",
+            "description": "Needs setup.",
+            "dependencies": [],
+            "approach": "Use lib.",
+            "prerequisites": ["pip install foobar"],
+        })
+
+        def plan_fn(prompt, system=None):
+            return _make_response(plan_with_prereqs)
+
+        def gen_fn(prompt, system=None):
+            return _make_response(VALID_CODE)
+
+        result = run_cycle(
+            repo_path="/fake", registry=registry,
+            log_path=op_log,
+            plan_fn=plan_fn, generate_fn=gen_fn,
+        )
+        assert result.pending_notifications is not None
+        for notif in result.pending_notifications:
+            assert not notif.startswith("[build]"), \
+                f"Prerequisite DM must not start with [build]: {notif!r}"
